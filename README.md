@@ -229,6 +229,4 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 <div align="center">
 
-Built by **Tareq** — backend engineer focused on clean, scalable, event-driven architecture.
-
-</div>
+Built by **Tareq Abu Sharkh** — Software engineer div>
