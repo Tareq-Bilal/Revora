@@ -229,4 +229,5 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 <div align="center">
 
-Built by **Tareq Abu Sharkh** — Software engineer div>
+Built by **Tareq Abu Sharkh** — Software engineer 
+</div>
