@@ -3,7 +3,7 @@
 # 🏎️ Revora
 ### Real-Time Online Vehicle Auction Platform
 
-![.NET](https://img.shields.io/badge/.NET-512BD4?style=for-the-badge&logo=dotnet&logoColor=white) ![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white) ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white) ![SignalR](https://img.shields.io/badge/SignalR-512BD4?style=for-the-badge&logo=dotnet&logoColor=white) ![Event Driven](https://img.shields.io/badge/Event%20Driven-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
+![.NET](https://img.shields.io/badge/.NET-512BD4?style=for-the-badge&logo=dotnet&logoColor=white) ![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white) ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white) ![SignalR](https://img.shields.io/badge/SignalR-512BD4?style=for-the-badge&logo=dotnet&logoColor=white) ![Event Driven](https://img.shields.io/badge/Event%20Driven-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white) ![Duende IdentityServer](https://img.shields.io/badge/Duende%20IdentityServer-2A2A2A?style=for-the-badge&logo=dotnet&logoColor=white)
 
 </div>
 
@@ -102,7 +102,7 @@ graph LR
 
 | Service | Responsibility | Database | Notes |
 |---|---|---|---|
-| **Identity Service** | Authentication, authorization, Security Token Service (STS), user management | PostgreSQL | Issues tokens consumed by every other service |
+| **Identity Service** | Authentication, authorization, Security Token Service (STS), user management | PostgreSQL | Built on **Duende IdentityServer**; issues tokens consumed by every other service |
 | **Auction Service** | Vehicle listings, auction lifecycle (create, schedule, close) | PostgreSQL | Source of truth for auction state |
 | **Search Service** | Fast, flexible vehicle/auction search & filtering | MongoDB | Denormalized read model, kept in sync via events |
 | **Bidding Service** | Real-time bid placement, validation, bid history | MongoDB | High write throughput during live auctions |
@@ -119,6 +119,7 @@ graph LR
 | BFF | Next.js |
 | API Gateway / Ingress | Gateway + Ingress controller |
 | Backend Services | .NET / C#, Clean Architecture |
+| Identity & Auth Server | **Duende IdentityServer** |
 | Relational Storage | PostgreSQL |
 | Document Storage | MongoDB |
 | Real-Time Communication | SignalR |
@@ -129,7 +130,7 @@ graph LR
 
 ## ✨ Key Features
 
-- 🔐 **Centralized Identity** — single STS issues and validates tokens across all services
+- 🔐 **Centralized Identity** — Duende IdentityServer issues and validates tokens across all services
 - 🚗 **Vehicle Listings & Auctions** — full lifecycle management from listing to close
 - ⚡ **Real-Time Bidding** — instant bid updates pushed to all watchers via SignalR
 - 🔎 **Fast Search & Filtering** — MongoDB-backed read model optimized for discovery
@@ -185,7 +186,7 @@ revora/
 │   ├── Gateway/                 # API Gateway
 │   ├── WebApp/                  # Next.js BFF + Web client
 │   ├── Services/
-│   │   ├── Identity/            # STS + Users
+│   │   ├── Identity/            # Duende IdentityServer + Users
 │   │   ├── Auction/             # Auction lifecycle
 │   │   ├── Search/              # Search & filtering
 │   │   ├── Bidding/             # Real-time bidding
@@ -229,5 +230,6 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 <div align="center">
 
-Built by **Tareq Abu Sharkh** — Software engineer 
+Built by **Tareq Abu Sharkh** — Software engineer
+
 </div>
