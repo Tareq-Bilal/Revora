@@ -1,14 +1,15 @@
-<div align="center"> # 🏎️ Revora
+<div align="center">
 
+# 🏎️ Revora
 ### Real-Time Online Vehicle Auction Platform
 
-**Bid live. Win fair. Drive away.**
+![.NET](https://img.shields.io/badge/.NET-512BD4?style=for-the-badge&logo=dotnet&logoColor=white) ![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white) ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white) ![SignalR](https://img.shields.io/badge/SignalR-512BD4?style=for-the-badge&logo=dotnet&logoColor=white) ![Event Driven](https://img.shields.io/badge/Event%20Driven-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
 
-![.NET](https://img.shields.io/badge/.NET-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)![SignalR](https://img.shields.io/badge/SignalR-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)![Event Driven](https://img.shields.io/badge/Event%20Driven-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
+</div>
 
-</div> ---
+---
 
----## 📖 About
+## 📖 About
 
 **Revora** is a cloud-native, **microservices-based vehicle auction platform** that lets sellers list vehicles and buyers compete for them through **live, real-time bidding**. Every domain — identity, auctions, search, bidding, and notifications — is owned by an independently deployable service. Services communicate asynchronously through an event bus, which keeps the system decoupled, resilient, and easy to scale or extend one capability at a time.
 
@@ -18,15 +19,15 @@ The platform is built around a **Backend-for-Frontend (BFF)** pattern, so each c
 
 ## 📑 Table of Contents
 
-- [Architecture Overview](https://claude.ai/chat/bc4e9bad-2edb-44b8-957c-0dfd7d274b8c#-architecture-overview)
-- [Core Services](https://claude.ai/chat/bc4e9bad-2edb-44b8-957c-0dfd7d274b8c#-core-services)
-- [Tech Stack](https://claude.ai/chat/bc4e9bad-2edb-44b8-957c-0dfd7d274b8c#-tech-stack)
-- [Key Features](https://claude.ai/chat/bc4e9bad-2edb-44b8-957c-0dfd7d274b8c#-key-features)
-- [Getting Started](https://claude.ai/chat/bc4e9bad-2edb-44b8-957c-0dfd7d274b8c#-getting-started)
-- [Project Structure](https://claude.ai/chat/bc4e9bad-2edb-44b8-957c-0dfd7d274b8c#-project-structure)
-- [Roadmap](https://claude.ai/chat/bc4e9bad-2edb-44b8-957c-0dfd7d274b8c#-roadmap)
-- [Contributing](https://claude.ai/chat/bc4e9bad-2edb-44b8-957c-0dfd7d274b8c#-contributing)
-- [License](https://claude.ai/chat/bc4e9bad-2edb-44b8-957c-0dfd7d274b8c#-license)
+- [Architecture Overview](#-architecture-overview)
+- [Core Services](#-core-services)
+- [Tech Stack](#-tech-stack)
+- [Key Features](#-key-features)
+- [Getting Started](#-getting-started)
+- [Project Structure](#-project-structure)
+- [Roadmap](#-roadmap)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ---
 
@@ -89,7 +90,6 @@ graph LR
 ```
 
 **Flow at a glance:**
-
 1. Web and mobile clients hit a shared **Ingress**.
 2. The **Next.js BFF** composes and tailors API calls per client before forwarding to the **Gateway**.
 3. The **Gateway** routes requests to the appropriate downstream microservice.
@@ -100,30 +100,30 @@ graph LR
 
 ## 🧩 Core Services
 
-| Service                  | Responsibility                                                               | Database   | Notes                                            |
-| ------------------------ | ---------------------------------------------------------------------------- | ---------- | ------------------------------------------------ |
-| **Identity Service**     | Authentication, authorization, Security Token Service (STS), user management | PostgreSQL | Issues tokens consumed by every other service    |
-| **Auction Service**      | Vehicle listings, auction lifecycle (create, schedule, close)                | PostgreSQL | Source of truth for auction state                |
-| **Search Service**       | Fast, flexible vehicle/auction search & filtering                            | MongoDB    | Denormalized read model, kept in sync via events |
-| **Bidding Service**      | Real-time bid placement, validation, bid history                             | MongoDB    | High write throughput during live auctions       |
-| **Notification Service** | Real-time alerts (outbid, auction ending, won/lost)                          | —          | Pushes updates via**SignalR**                    |
+| Service | Responsibility | Database | Notes |
+|---|---|---|---|
+| **Identity Service** | Authentication, authorization, Security Token Service (STS), user management | PostgreSQL | Issues tokens consumed by every other service |
+| **Auction Service** | Vehicle listings, auction lifecycle (create, schedule, close) | PostgreSQL | Source of truth for auction state |
+| **Search Service** | Fast, flexible vehicle/auction search & filtering | MongoDB | Denormalized read model, kept in sync via events |
+| **Bidding Service** | Real-time bid placement, validation, bid history | MongoDB | High write throughput during live auctions |
+| **Notification Service** | Real-time alerts (outbid, auction ending, won/lost) | — | Pushes updates via **SignalR** |
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer                   | Technology                    |
-| ----------------------- | ----------------------------- |
-| Web Client              | Next.js                       |
-| Mobile Client           | iOS / Android*(planned)*      |
-| BFF                     | Next.js                       |
-| API Gateway / Ingress   | Gateway + Ingress controller  |
-| Backend Services        | .NET / C#, Clean Architecture |
-| Relational Storage      | PostgreSQL                    |
-| Document Storage        | MongoDB                       |
-| Real-Time Communication | SignalR                       |
-| Async Messaging         | Event Bus (Publish/Subscribe) |
-| Containerization        | Docker                        |
+| Layer | Technology |
+|---|---|
+| Web Client | Next.js |
+| Mobile Client | iOS / Android *(planned)* |
+| BFF | Next.js |
+| API Gateway / Ingress | Gateway + Ingress controller |
+| Backend Services | .NET / C#, Clean Architecture |
+| Relational Storage | PostgreSQL |
+| Document Storage | MongoDB |
+| Real-Time Communication | SignalR |
+| Async Messaging | Event Bus (Publish/Subscribe) |
+| Containerization | Docker |
 
 ---
 
@@ -142,9 +142,8 @@ graph LR
 ## 🚀 Getting Started
 
 ### Prerequisites
-
 - [Docker](https://www.docker.com/) & Docker Compose
-- [.NET 8 SDK](https://dotnet.microsoft.com/) (for local backend development)
+- [.NET 10 SDK](https://dotnet.microsoft.com/) (for local backend development)
 - [Node.js 18+](https://nodejs.org/) (for the Next.js BFF/WebApp)
 
 ### Run with Docker
@@ -224,10 +223,12 @@ Contributions are welcome! Please open an issue to discuss what you'd like to ch
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](https://claude.ai/chat/LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
-<div align="center"> Built by **Tareq** — backend engineer focused on clean, scalable, event-driven architecture.
+<div align="center">
+
+Built by **Tareq** — backend engineer focused on clean, scalable, event-driven architecture.
 
 </div>
