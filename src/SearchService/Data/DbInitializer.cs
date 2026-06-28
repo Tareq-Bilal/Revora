@@ -42,11 +42,6 @@ public class DbInitializer
             return;
         }
 
-        foreach (var item in items)
-        {
-            Console.WriteLine($"{item.ID} | {item.Make} {item.Model} {item.Year}");
-        }
-
         await db.SaveAsync(items);
 
         Console.WriteLine("Database seeding completed.");
