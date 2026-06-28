@@ -79,23 +79,38 @@ public class SearchController : ControllerBase
         FilterDefinitionBuilder<Item> builder,
         string searchTerm)
     {
+        if (TryParseAuctionStatus(searchTerm, out var fullStatus))
+        {
+            return builder.Eq(x => x.Status, fullStatus.ToString());
+        }
+
         var searchTermFilters = searchTerm
             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(term =>
             {
+                if (TryParseAuctionStatus(term, out var status))
+                {
+                    return builder.Eq(x => x.Status, status.ToString());
+                }
+
                 var pattern = new BsonRegularExpression(Regex.Escape(term), "i");
 
                 return builder.Or(
                     builder.Regex(x => x.Make, pattern),
                     builder.Regex(x => x.Model, pattern),
                     builder.Regex(x => x.Color, pattern),
-                    builder.Regex(x => x.Seller, pattern),
-                    builder.Regex(x => x.Status, pattern)
-
+                    builder.Regex(x => x.Seller, pattern)
                 );
             });
 
         return builder.And(searchTermFilters);
+    }
+
+    private static bool TryParseAuctionStatus(string searchTerm, out AuctionStatus status)
+    {
+        var normalizedSearchTerm = Regex.Replace(searchTerm, @"[\s_-]", string.Empty);
+
+        return Enum.TryParse(normalizedSearchTerm, ignoreCase: true, out status);
     }
 
     private static SortDefinition<Item> BuildSort(
