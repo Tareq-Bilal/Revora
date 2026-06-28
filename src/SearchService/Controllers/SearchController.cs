@@ -43,23 +43,24 @@ public class SearchController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(searchParams.SearchTerm))
         {
-            var pattern = new BsonRegularExpression(Regex.Escape(searchParams.SearchTerm), "i");
-            filters.Add(builder.Or(
-                builder.Regex(x => x.Make, pattern),
-                builder.Regex(x => x.Model, pattern),
-                builder.Regex(x => x.Color, pattern)
-            ));
+            filters.Add(BuildSearchTermFilter(builder, searchParams.SearchTerm));
         }
 
-        filters.Add(searchParams.FilterBy?.ToLowerInvariant() switch
+        switch (searchParams.FilterBy?.ToLowerInvariant())
         {
-            "finished" => builder.Lte(x => x.AuctionEnd, utcNow),
-            "endingSoon" => builder.And(
-                builder.Gt(x => x.AuctionEnd, utcNow),
-                builder.Lte(x => x.AuctionEnd, utcNow.AddHours(6))
-            ),
-            _ => builder.Gt(x => x.AuctionEnd, utcNow)
-        });
+            case "finished":
+                filters.Add(builder.Lte(x => x.AuctionEnd, utcNow));
+                break;
+            case "endingsoon":
+                filters.Add(builder.And(
+                    builder.Gt(x => x.AuctionEnd, utcNow),
+                    builder.Lte(x => x.AuctionEnd, utcNow.AddHours(6))
+                ));
+                break;
+            case "live":
+                filters.Add(builder.Gt(x => x.AuctionEnd, utcNow));
+                break;
+        }
 
         if (!string.IsNullOrWhiteSpace(searchParams.Seller))
         {
@@ -72,6 +73,29 @@ public class SearchController : ControllerBase
         }
 
         return filters.Count == 0 ? builder.Empty : builder.And(filters);
+    }
+
+    private static FilterDefinition<Item> BuildSearchTermFilter(
+        FilterDefinitionBuilder<Item> builder,
+        string searchTerm)
+    {
+        var searchTermFilters = searchTerm
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(term =>
+            {
+                var pattern = new BsonRegularExpression(Regex.Escape(term), "i");
+
+                return builder.Or(
+                    builder.Regex(x => x.Make, pattern),
+                    builder.Regex(x => x.Model, pattern),
+                    builder.Regex(x => x.Color, pattern),
+                    builder.Regex(x => x.Seller, pattern),
+                    builder.Regex(x => x.Status, pattern)
+
+                );
+            });
+
+        return builder.And(searchTermFilters);
     }
 
     private static SortDefinition<Item> BuildSort(
