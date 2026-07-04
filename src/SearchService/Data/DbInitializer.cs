@@ -1,7 +1,7 @@
-using System.Text.Json;
 using MongoDB.Driver;
 using MongoDB.Entities;
 using SearchService.Entities;
+using SearchService.Services;
 
 namespace SearchService.Data;
 
@@ -22,28 +22,21 @@ public class DbInitializer
             .Key(x => x.Color, KeyType.Ascending)
             .CreateAsync();
 
-        // Development only: remove old bad seed data
-        await db.DeleteAsync<Item>(_ => true);
+        using var scope = app.Services.CreateScope();
+        var auctionSvcHttpClient = scope.ServiceProvider.GetRequiredService<AuctionSvcHttpClient>();
 
-        Console.WriteLine("Seeding database with initial data...");
+        Console.WriteLine("Syncing search database from auction service...");
 
-        var itemData = await File.ReadAllTextAsync("Data/auctions.json");
-
-        var options = new JsonSerializerOptions
+        var items = await auctionSvcHttpClient.GetItemsForSearchDbAsync();
+        
+        if (items.Count == 0)
         {
-            PropertyNameCaseInsensitive = true
-        };
-
-        var items = JsonSerializer.Deserialize<List<Item>>(itemData, options);
-
-        if (items == null || items.Count == 0)
-        {
-            Console.WriteLine("No items found in auctions.json");
+            Console.WriteLine("No new auction items found");
             return;
         }
 
         await db.SaveAsync(items);
 
-        Console.WriteLine("Database seeding completed.");
+        Console.WriteLine("Search database sync completed.");
     }
 }

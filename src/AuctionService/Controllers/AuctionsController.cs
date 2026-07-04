@@ -2,6 +2,7 @@ using AuctionService.Data;
 using AuctionService.DTOs;
 using AuctionService.Entites;
 using AutoMapper;
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,12 +22,29 @@ public class AuctionsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<AuctionDto>>> ListAuctions()
+    public async Task<ActionResult<List<AuctionDto>>> ListAuctions([FromQuery] string date)
     {
-        var auctions = await _context.Auctions
-        .Include(a => a.Item)
-        .OrderBy(a => a.Item.Make)
-        .ToListAsync();
+        var query = _context.Auctions
+            .Include(a => a.Item)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(date))
+        {
+            if (!DateTime.TryParse(
+                date,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var parsedDate))
+            {
+                return BadRequest("Invalid date query string");
+            }
+
+            query = query.Where(a => a.UpdatedAt.HasValue && a.UpdatedAt.Value > parsedDate);
+        }
+
+        var auctions = await query
+            .OrderBy(a => a.Item.Make)
+            .ToListAsync();
 
         return _mapper.Map<List<AuctionDto>>(auctions);
     }
@@ -72,6 +90,7 @@ public class AuctionsController : ControllerBase
         auction.Item.Year = updateAuctionDto.Year ?? auction.Item.Year;
         auction.Item.Color = updateAuctionDto.Color ?? auction.Item.Color;
         auction.Item.Mileage = updateAuctionDto.Mileage ?? auction.Item.Mileage;
+        auction.UpdatedAt = DateTime.UtcNow;
 
         var result = await _context.SaveChangesAsync() > 0;
 
