@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Revora Service Bus Flow</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #16202a;
+      --muted: #5f6d7a;
+      --line: #cbd5df;
+      --auction: #2563eb;
+      --bus: #f97316;
+      --search: #059669;
+      --shadow: 0 14px 30px rgba(22, 32, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 42px 0;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .intro {
+      max-width: 760px;
+      margin: 0 0 30px;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.6;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: stretch;
+      gap: 18px;
+    }
+
+    .lane {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .lane-title {
+      margin: 0 0 2px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .card {
+      min-height: 118px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .auction {
+      border-top: 5px solid var(--auction);
+    }
+
+    .bus {
+      border-top: 5px solid var(--bus);
+    }
+
+    .search {
+      border-top: 5px solid var(--search);
+    }
+
+    .arrow {
+      width: 58px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-weight: 700;
+      position: relative;
+    }
+
+    .arrow::before {
+      content: "";
+      width: 100%;
+      height: 2px;
+      background: var(--line);
+      display: block;
+    }
+
+    .arrow::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      width: 10px;
+      height: 10px;
+      border-top: 2px solid var(--line);
+      border-right: 2px solid var(--line);
+      transform: rotate(45deg);
+    }
+
+    .events {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .event {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
+    .steps {
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      counter-reset: step;
+    }
+
+    .step {
+      min-height: 128px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      counter-increment: step;
+    }
+
+    .step::before {
+      content: counter(step);
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      margin-bottom: 12px;
+      border-radius: 999px;
+      background: var(--text);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .step strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+
+    .step span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 860px) {
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        width: 100%;
+        height: 34px;
+      }
+
+      .arrow::before {
+        width: 2px;
+        height: 100%;
+      }
+
+      .arrow::after {
+        right: auto;
+        bottom: 0;
+        transform: rotate(135deg);
+      }
+
+      .steps {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Service Bus Flow</h1>
+    <p class="intro">
+      AuctionService owns the write model in PostgreSQL. SearchService keeps a denormalized MongoDB read model in sync by consuming events from RabbitMQ.
+    </p>
+
+    <section class="flow" aria-label="Service bus flow diagram">
+      <div class="lane">
+        <h2 class="lane-title">AuctionService</h2>
+        <article class="card auction">
+          <strong>Controller action</strong>
+          <p>Create, update, or delete auction data through the API.</p>
+        </article>
+        <article class="card auction">
+          <strong>Save to PostgreSQL</strong>
+          <p>The auction database remains the source of truth.</p>
+        </article>
+        <article class="card auction">
+          <strong>Publish event</strong>
+          <p>MassTransit sends a contract message after the database change succeeds.</p>
+        </article>
+      </div>
+
+      <div class="arrow" aria-hidden="true"></div>
+
+      <div class="lane">
+        <h2 class="lane-title">RabbitMQ</h2>
+        <article class="card bus">
+          <strong>Message broker</strong>
+          <p>The service bus decouples AuctionService from SearchService.</p>
+          <div class="events">
+            <div class="event">AuctionCreated</div>
+            <div class="event">AuctionUpdated</div>
+            <div class="event">AuctionDeleted</div>
+          </div>
+        </article>
+      </div>
+
+      <div class="arrow" aria-hidden="true"></div>
+
+      <div class="lane">
+        <h2 class="lane-title">SearchService</h2>
+        <article class="card search">
+          <strong>Consume event</strong>
+          <p>MassTransit routes each message to the matching consumer class.</p>
+        </article>
+        <article class="card search">
+          <strong>Update MongoDB</strong>
+          <p>The search index is created, patched, or deleted based on the event.</p>
+        </article>
+        <article class="card search">
+          <strong>Search stays fresh</strong>
+          <p>Users query the MongoDB read model without calling AuctionService directly.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="steps" aria-label="Simplified event sequence">
+      <article class="step">
+        <strong>API request arrives</strong>
+        <span>A user creates, updates, or deletes an auction.</span>
+      </article>
+      <article class="step">
+        <strong>Database change succeeds</strong>
+        <span>AuctionService saves the change in PostgreSQL first.</span>
+      </article>
+      <article class="step">
+        <strong>Event is published</strong>
+        <span>MassTransit publishes the matching contract to RabbitMQ.</span>
+      </article>
+      <article class="step">
+        <strong>Consumer receives it</strong>
+        <span>SearchService handles the message with the matching consumer.</span>
+      </article>
+      <article class="step">
+        <strong>Search model updates</strong>
+        <span>MongoDB is synchronized for fast search queries.</span>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

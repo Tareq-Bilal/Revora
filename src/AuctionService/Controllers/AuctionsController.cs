@@ -2,6 +2,8 @@ using AuctionService.Data;
 using AuctionService.DTOs;
 using AuctionService.Entites;
 using AutoMapper;
+using Contracts;
+using MassTransit;
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,11 +16,13 @@ public class AuctionsController : ControllerBase
 {
     private readonly AuctionDbContext _context;
     private readonly IMapper _mapper;
+    private readonly IPublishEndpoint _publishEndpoint;
 
-    public AuctionsController(AuctionDbContext context, IMapper mapper)
+    public AuctionsController(AuctionDbContext context, IMapper mapper, IPublishEndpoint publishEndpoint)
     {
         _context = context;
         _mapper = mapper;
+        _publishEndpoint = publishEndpoint;
     }
 
     [HttpGet]
@@ -70,8 +74,11 @@ public class AuctionsController : ControllerBase
         var result = await _context.SaveChangesAsync() > 0;
         
         if(!result) return BadRequest("Failed to create auction");
+
+        var auctionDto = _mapper.Map<AuctionDto>(auction);
+        await _publishEndpoint.Publish(_mapper.Map<AuctionCreated>(auctionDto));
         
-        return CreatedAtAction(nameof(GetAuction), new {auction.Id }, _mapper.Map<AuctionDto>(auction));
+        return CreatedAtAction(nameof(GetAuction), new {auction.Id }, auctionDto);
     }
 
     [HttpPut("{id}")]
@@ -96,6 +103,16 @@ public class AuctionsController : ControllerBase
 
         if (!result) return BadRequest("Failed to update auction");
 
+        await _publishEndpoint.Publish(new AuctionUpdated
+        {
+            Id = auction.Id,
+            Make = auction.Item.Make,
+            Model = auction.Item.Model,
+            Year = auction.Item.Year,
+            Color = auction.Item.Color,
+            Mileage = auction.Item.Mileage
+        });
+
         return Ok();
     }
 
@@ -113,6 +130,8 @@ public class AuctionsController : ControllerBase
         var result = await _context.SaveChangesAsync() > 0;
 
         if (!result) return BadRequest("Failed to delete auction");
+
+        await _publishEndpoint.Publish(new AuctionDeleted { Id = auction.Id });
 
         return Ok();
     }
