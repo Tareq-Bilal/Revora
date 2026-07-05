@@ -1,3 +1,4 @@
+using AutoMapper;
 using Contracts;
 using MassTransit;
 using MongoDB.Driver;
@@ -9,32 +10,18 @@ namespace SearchService.Consumers;
 public class AuctionCreatedConsumer : IConsumer<AuctionCreated>
 {
     private readonly ILogger<AuctionCreatedConsumer> _logger;
+    private readonly IMapper _mapper;
 
-    public AuctionCreatedConsumer(ILogger<AuctionCreatedConsumer> logger)
+    public AuctionCreatedConsumer(ILogger<AuctionCreatedConsumer> logger, IMapper mapper)
     {
         _logger = logger;
+        _mapper = mapper;
     }
 
     public async Task Consume(ConsumeContext<AuctionCreated> context)
     {
         var message = context.Message;
-        var item = new Item
-        {
-            ID = message.Id.ToString(),
-            ReservePrice = Convert.ToInt32(message.ReservePrice),
-            Seller = message.Seller,
-            Winner = message.Winner,
-            Make = message.Make,
-            Model = message.Model,
-            Year = message.Year,
-            Color = message.Color,
-            Mileage = message.Mileage,
-            CreatedAt = message.CreatedAt ?? DateTime.UtcNow,
-            UpdatedAt = message.UpdatedAt ?? DateTime.UtcNow,
-            AuctionEnd = message.AuctionEnd ?? DateTime.UtcNow,
-            Status = message.Status,
-            ImageUrl = message.ImageUrl
-        };
+        var item = _mapper.Map<Item>(message);
 
         await DB.Default.Collection<Item>().ReplaceOneAsync(
             x => x.ID == item.ID,
