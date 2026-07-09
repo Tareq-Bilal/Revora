@@ -76,6 +76,7 @@ public class AuctionsController : ControllerBase
         if(!result) return BadRequest("Failed to create auction");
 
         var auctionDto = _mapper.Map<AuctionDto>(auction);
+        // Publish the AuctionCreated event to the message broker
         await _publishEndpoint.Publish(_mapper.Map<AuctionCreated>(auctionDto));
         
         return CreatedAtAction(nameof(GetAuction), new {auction.Id }, auctionDto);

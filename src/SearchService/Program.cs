@@ -22,6 +22,9 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<AuctionUpdatedConsumer>();
     x.AddConsumer<AuctionDeletedConsumer>();
 
+    x.SetEndpointNameFormatter(
+        new KebabCaseEndpointNameFormatter(prefix: "search", includeNamespace: false));
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.ConfigureEndpoints(context);
