@@ -46,18 +46,18 @@ public class SearchController : ControllerBase
             filters.Add(BuildSearchTermFilter(builder, searchParams.SearchTerm));
         }
 
-        switch (searchParams.FilterBy?.ToLowerInvariant())
+        switch (searchParams.FilterBy)
         {
-            case "finished":
+            case SearchFilterBy.Finished:
                 filters.Add(builder.Lte(x => x.AuctionEnd, utcNow));
                 break;
-            case "endingsoon":
+            case SearchFilterBy.EndingSoon:
                 filters.Add(builder.And(
                     builder.Gt(x => x.AuctionEnd, utcNow),
                     builder.Lte(x => x.AuctionEnd, utcNow.AddHours(6))
                 ));
                 break;
-            case "live":
+            case SearchFilterBy.Live:
                 filters.Add(builder.Gt(x => x.AuctionEnd, utcNow));
                 break;
         }
@@ -117,10 +117,10 @@ public class SearchController : ControllerBase
         SortDefinitionBuilder<Item> builder,
         SearchParams searchParams)
     {
-        return searchParams.OrderBy?.ToLowerInvariant() switch
+        return searchParams.OrderBy switch
         {
-            "new" => builder.Descending(x => x.CreatedAt),
-            "endingSoon" => builder.Ascending(x => x.AuctionEnd),
+            SearchOrderBy.New => builder.Descending(x => x.CreatedAt),
+            SearchOrderBy.EndingSoon => builder.Ascending(x => x.AuctionEnd),
             _ => builder.Combine(
                 builder.Ascending(x => x.Make),
                 builder.Ascending(x => x.Model)
