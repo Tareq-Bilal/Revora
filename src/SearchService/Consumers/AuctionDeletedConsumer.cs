@@ -1,28 +1,27 @@
 using Contracts;
 using MassTransit;
-using MongoDB.Driver;
-using MongoDB.Entities;
-using SearchService.Entities;
+using SearchService.Services;
 
 namespace SearchService.Consumers;
 
 public class AuctionDeletedConsumer : IConsumer<AuctionDeleted>
 {
     private readonly ILogger<AuctionDeletedConsumer> _logger;
+    private readonly ISearchIndexService _searchIndexService;
 
-    public AuctionDeletedConsumer(ILogger<AuctionDeletedConsumer> logger)
+    public AuctionDeletedConsumer(
+        ILogger<AuctionDeletedConsumer> logger,
+        ISearchIndexService searchIndexService)
     {
         _logger = logger;
+        _searchIndexService = searchIndexService;
     }
 
     public async Task Consume(ConsumeContext<AuctionDeleted> context)
     {
-        var filter = Builders<Item>.Filter.Eq(x => x.ID, context.Message.Id.ToString());
-        var result = await DB.Default.Collection<Item>().DeleteOneAsync(
-            filter,
-            context.CancellationToken);
+        var itemDeleted = await _searchIndexService.DeleteAsync(context.Message, context.CancellationToken);
 
-        if (result.DeletedCount == 0)
+        if (!itemDeleted)
         {
             _logger.LogWarning("Auction delete message consumed but item was not found: {AuctionId}", context.Message.Id);
             return;
