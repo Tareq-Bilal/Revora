@@ -18,7 +18,8 @@ public class AuctionsController : ControllerBase
     private readonly IMapper _mapper;
     private readonly IPublishEndpoint _publishEndpoint;
 
-    public AuctionsController(AuctionDbContext context, IMapper mapper, IPublishEndpoint publishEndpoint)
+    public AuctionsController(AuctionDbContext context, IMapper mapper,
+     IPublishEndpoint publishEndpoint)
     {
         _context = context;
         _mapper = mapper;
@@ -71,13 +72,15 @@ public class AuctionsController : ControllerBase
         var auction = _mapper.Map<Auction>(createAuctionDto);
         auction.Seller = "tareq"; // Replace with the actual seller's username or ID
         _context.Auctions.Add(auction);
+
+        var auctionDto = _mapper.Map<AuctionDto>(auction);
+
+        // Publish the AuctionCreated event to the message broker                                                                                                                       
+        await _publishEndpoint.Publish(_mapper.Map<AuctionCreated>(auctionDto));
+
         var result = await _context.SaveChangesAsync() > 0;
         
         if(!result) return BadRequest("Failed to create auction");
-
-        var auctionDto = _mapper.Map<AuctionDto>(auction);
-        // Publish the AuctionCreated event to the message broker                                                                                                                       
-        await _publishEndpoint.Publish(_mapper.Map<AuctionCreated>(auctionDto));
         
         return CreatedAtAction(nameof(GetAuction), new {auction.Id }, auctionDto);
     }
