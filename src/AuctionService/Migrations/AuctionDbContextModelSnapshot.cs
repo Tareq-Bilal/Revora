@@ -220,6 +220,10 @@ namespace AuctionService.Migrations
 
                     b.HasKey("SequenceNumber");
 
+                    b.HasIndex("EnqueueTime");
+
+                    b.HasIndex("ExpirationTime");
+
                     b.HasIndex("OutboxId", "SequenceNumber")
                         .IsUnique();
 
@@ -234,10 +238,6 @@ namespace AuctionService.Migrations
                     b.Property<Guid>("OutboxId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<string>("BusName")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
 
                     b.Property<DateTime>("Created")
                         .HasColumnType("timestamp with time zone");
@@ -258,7 +258,7 @@ namespace AuctionService.Migrations
 
                     b.HasKey("OutboxId");
 
-                    b.HasIndex("BusName", "Created");
+                    b.HasIndex("Created");
 
                     b.ToTable("OutboxState");
                 });
