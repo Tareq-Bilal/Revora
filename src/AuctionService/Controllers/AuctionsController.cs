@@ -103,10 +103,6 @@ public class AuctionsController : ControllerBase
         auction.Item.Mileage = updateAuctionDto.Mileage ?? auction.Item.Mileage;
         auction.UpdatedAt = DateTime.UtcNow;
 
-        var result = await _context.SaveChangesAsync() > 0;
-
-        if (!result) return BadRequest("Failed to update auction");
-
         await _publishEndpoint.Publish(new AuctionUpdated
         {
             Id = auction.Id,
@@ -116,6 +112,11 @@ public class AuctionsController : ControllerBase
             Color = auction.Item.Color,
             Mileage = auction.Item.Mileage
         });
+
+        var result = await _context.SaveChangesAsync() > 0;
+
+        if (!result) return BadRequest("Failed to update auction");
+
 
         return Ok();
     }
@@ -131,11 +132,12 @@ public class AuctionsController : ControllerBase
 
         _context.Auctions.Remove(auction);
 
+        await _publishEndpoint.Publish(new AuctionDeleted { Id = auction.Id });
+        
         var result = await _context.SaveChangesAsync() > 0;
 
         if (!result) return BadRequest("Failed to delete auction");
 
-        await _publishEndpoint.Publish(new AuctionDeleted { Id = auction.Id });
 
         return Ok();
     }
