@@ -27,7 +27,7 @@ The services are synchronized asynchronously through RabbitMQ and MassTransit. A
 
 ## Table of Contents
 
-- [Current Architecture](#current-architecture)
+- [General Architecture](#general-architecture)
 - [Implemented Features](#implemented-features)
 - [Service Responsibilities](#service-responsibilities)
 - [Event-Driven Synchronization](#event-driven-synchronization)
@@ -40,48 +40,17 @@ The services are synchronized asynchronously through RabbitMQ and MassTransit. A
 - [Current Limitations](#current-limitations)
 - [Roadmap](#roadmap)
 
-## Current Architecture
+## General Architecture
 
-```mermaid
-flowchart LR
-    Client[API Client]
+<div align="center">
 
-    subgraph AuctionBoundary[AuctionService]
-        AuctionApi[ASP.NET Core API]
-        AuctionDbContext[EF Core]
-        Outbox[MassTransit Bus Outbox]
-        OutboxWorker[Outbox Delivery Service]
-    end
+<img src="docs/revora_architecture.svg" alt="Revora general system architecture" width="100%" />
 
-    subgraph SearchBoundary[SearchService]
-        SearchApi[ASP.NET Core Search API]
-        Consumers[MassTransit Consumers]
-        SearchIndex[SearchIndexService]
-        StartupSync[Startup HTTP Synchronization]
-    end
+</div>
 
-    PostgreSQL[(PostgreSQL)]
-    RabbitMQ[(RabbitMQ)]
-    MongoDB[(MongoDB)]
+The diagram presents Revora's general target architecture: web and mobile clients enter through ingress, a Next.js BFF and API gateway route requests, independently owned services communicate through a publish/subscribe event bus, and SignalR carries real-time notifications back to clients.
 
-    Client -->|CRUD /api/auctions| AuctionApi
-    Client -->|GET /api/search| SearchApi
-
-    AuctionApi --> AuctionDbContext
-    AuctionApi --> Outbox
-    AuctionDbContext --> PostgreSQL
-    Outbox --> PostgreSQL
-    PostgreSQL --> OutboxWorker
-    OutboxWorker --> RabbitMQ
-
-    RabbitMQ --> Consumers
-    Consumers --> SearchIndex
-    SearchIndex --> MongoDB
-    SearchApi --> MongoDB
-
-    StartupSync -->|GET changed auctions| AuctionApi
-    StartupSync --> MongoDB
-```
+The current repository implements the **AuctionService**, **SearchService**, their PostgreSQL and MongoDB persistence, RabbitMQ event integration, and the shared contracts between them. The remaining components in the diagram represent the intended direction of the platform.
 
 ### Architecture principles currently demonstrated
 
