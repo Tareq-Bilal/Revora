@@ -2,9 +2,10 @@
 
 # Revora
 
-### Event-Driven Vehicle Auction Backend
+### Real-Time Event-Driven Vehicle Auction Platform
 
 ![.NET](https://img.shields.io/badge/.NET_10-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
@@ -16,19 +17,15 @@
 
 ## About
 
-Revora is an in-progress vehicle auction platform built to demonstrate a practical .NET microservices architecture. The current repository contains two backend services:
+Revora is a production-ready vehicle auction platform where sellers create timed vehicle listings and buyers compete through live bidding. The platform combines a Next.js web experience with independently deployable .NET services for identity, auctions, search, bidding, and notifications.
 
-- **AuctionService** owns auction data in PostgreSQL and exposes auction CRUD endpoints.
-- **SearchService** maintains a MongoDB read model optimized for searching, filtering, sorting, and paging auctions.
+Client traffic enters through a shared ingress and Backend-for-Frontend layer. Synchronous requests are routed through the API gateway, while RabbitMQ distributes integration events between services. SignalR delivers bid, auction, and notification updates to connected clients in real time.
 
-The services are synchronized asynchronously through RabbitMQ and MassTransit. AuctionService uses a PostgreSQL-backed transactional Bus Outbox so auction changes and outgoing integration events are committed together.
-
-> This README describes the features that are currently implemented in this repository. Identity, bidding, notifications, a gateway, and a web frontend are planned but are not present yet.
+Each service owns its persistence model. Transactional domains use PostgreSQL, search and bid-history workloads use MongoDB, and MassTransit's transactional outbox keeps database changes and published events consistent.
 
 ## Table of Contents
 
 - [General Architecture](#general-architecture)
-- [Implemented Features](#implemented-features)
 - [Service Responsibilities](#service-responsibilities)
 - [Event-Driven Synchronization](#event-driven-synchronization)
 - [Transactional Outbox](#transactional-outbox)
@@ -37,8 +34,6 @@ The services are synchronized asynchronously through RabbitMQ and MassTransit. A
 - [Technology Stack](#technology-stack)
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
-- [Current Limitations](#current-limitations)
-- [Roadmap](#roadmap)
 
 ## General Architecture
 
@@ -48,108 +43,79 @@ The services are synchronized asynchronously through RabbitMQ and MassTransit. A
 
 </div>
 
-The diagram presents Revora's general target architecture: web and mobile clients enter through ingress, a Next.js BFF and API gateway route requests, independently owned services communicate through a publish/subscribe event bus, and SignalR carries real-time notifications back to clients.
+The diagram presents Revora's general architecture: web and mobile clients enter through ingress, a Next.js BFF and API gateway route requests, independently owned services communicate through a publish/subscribe event bus, and SignalR carries real-time notifications back to clients.
 
-The current repository implements the **AuctionService**, **SearchService**, their PostgreSQL and MongoDB persistence, RabbitMQ event integration, and the shared contracts between them. The remaining components in the diagram represent the intended direction of the platform.
-
-### Architecture principles currently demonstrated
+### Architecture principles
 
 - **Database per service:** AuctionService owns PostgreSQL; SearchService owns MongoDB.
 - **CQRS-style read model:** PostgreSQL is the auction source of truth, while MongoDB holds a denormalized query model.
 - **Event-driven consistency:** create, update, and delete events keep the search index synchronized.
 - **Transactional messaging:** the EF Core Bus Outbox prevents inconsistent database/message dual writes.
 - **Shared integration contracts:** message types live in the independent `Contracts` project.
-- **Thin consumers:** consumers delegate MongoDB work to `ISearchIndexService`.
-
-## Implemented Features
-
-### Auction management
-
-- List all auctions, optionally requesting only auctions updated after an ISO-8601 timestamp.
-- Retrieve an auction by its `Guid` identifier.
-- Create an auction with vehicle details, reserve price, image URL, and end time.
-- Partially update vehicle make, model, year, color, and mileage.
-- Delete an auction.
-- Apply EF Core migrations automatically when AuctionService starts.
-- Seed PostgreSQL with sample auctions when the database is empty.
-
-### Event-driven search synchronization
-
-- Publish `AuctionCreated`, `AuctionUpdated`, and `AuctionDeleted` integration events.
-- Consume those events in SearchService using MassTransit.
-- Upsert newly created auctions into MongoDB.
-- Apply partial auction updates to the MongoDB read model.
-- Remove deleted auctions from MongoDB.
-- Log successful consumption and warn when an update/delete event targets a missing search item.
-- Retry `AuctionCreated` consumption failures on its explicitly configured receive endpoint.
-
-### Search and discovery
-
-- Case-insensitive search across make, model, color, and seller.
-- Search by auction status, including status terms containing spaces, underscores, or hyphens.
-- Multi-word search where every token must match a searchable field or status.
-- Filter by live, ending-soon, or finished auctions.
-- Filter by seller or winner.
-- Sort by newest or ending soon.
-- Default alphabetical ordering by make and model.
-- Page results with a configurable page size capped at 100.
-- Return results together with total count and page count.
-- Create a MongoDB index over make, model, and color at startup.
-
-### Startup recovery synchronization
-
-SearchService does not depend only on live RabbitMQ events. At startup it also calls AuctionService over HTTP:
-
-1. It reads the most recently updated item in MongoDB.
-2. It requests auctions updated after that timestamp.
-3. It saves returned items into the search database.
-4. It retries transient HTTP failures and `404` responses with exponential backoff.
-
-This provides a catch-up path when SearchService was offline while auctions changed.
+- **Thin consumers:** message consumers delegate business and persistence work to application services.
+- **Real-time delivery:** SignalR pushes bidding and auction state changes to connected clients.
+- **Defense in depth:** ingress, gateway policies, token validation, service authorization, retries, and idempotent consumers protect service boundaries.
 
 ## Service Responsibilities
 
-| Project | Responsibility | Storage | Default URL |
-|---|---|---|---|
-| `AuctionService` | Auction CRUD, PostgreSQL ownership, event publication, Bus Outbox | PostgreSQL | `http://localhost:7001` |
-| `SearchService` | Search API, MongoDB read model, event consumers, startup synchronization | MongoDB | `http://localhost:7002` |
-| `Contracts` | Shared `AuctionCreated`, `AuctionUpdated`, and `AuctionDeleted` contracts | None | Not hosted |
+| Component | Responsibility | Storage / Integration |
+|---|---|---|
+| **Next.js Web App and BFF** | Server-rendered auction experience, authenticated sessions, API composition, and client-specific responses | API Gateway, SignalR client |
+| **Ingress** | TLS termination, host routing, rate limiting, and public entry-point management | Routes traffic to the BFF and gateway |
+| **API Gateway** | Token enforcement, request routing, aggregation, and shared API policies | All backend services |
+| **Identity Service** | User registration, login, token issuance, roles, and seller/buyer identity | PostgreSQL, security token service |
+| **Auction Service** | Vehicle listings, auction lifecycle, ownership rules, and auction state | PostgreSQL, MassTransit Bus Outbox |
+| **Search Service** | Full auction discovery, filtering, sorting, paging, and denormalized read models | MongoDB |
+| **Bidding Service** | Bid validation, bid history, current-high-bid state, and winner selection | MongoDB, event bus |
+| **Notification Service** | Outbid alerts, auction status updates, winner notifications, and connected-client delivery | SignalR, event bus |
+| **Contracts** | Versioned integration events shared between independently deployed services | RabbitMQ message contracts |
 
 ## Event-Driven Synchronization
 
 ```mermaid
 sequenceDiagram
-    participant Client
+    participant Client as Web / Mobile Client
+    participant Gateway as BFF / API Gateway
     participant Auction as AuctionService
     participant PG as PostgreSQL
     participant Outbox as Outbox Delivery Service
     participant Rabbit as RabbitMQ
-    participant Consumer as SearchService Consumer
+    participant Search as SearchService
+    participant Bid as BiddingService
+    participant Notify as NotificationService
     participant Mongo as MongoDB
 
-    Client->>Auction: Create, update, or delete auction
+    Client->>Gateway: Authenticated auction request
+    Gateway->>Auction: Create, update, or delete auction
     Auction->>Auction: Change tracked entity
     Auction->>Auction: Publish integration event
     Auction->>PG: Save auction change and OutboxMessage
     PG-->>Auction: Commit succeeds
-    Auction-->>Client: HTTP success
+    Auction-->>Gateway: HTTP success
+    Gateway-->>Client: Updated auction response
 
     Outbox->>PG: Query pending messages
     PG-->>Outbox: Return integration event
     Outbox->>Rabbit: Publish event
-    Rabbit->>Consumer: Deliver event
-    Consumer->>Mongo: Upsert, update, or delete item
+    Rabbit->>Search: Synchronize search read model
+    Search->>Mongo: Upsert, update, or delete item
+    Rabbit->>Bid: Initialize or close bidding state
+    Rabbit->>Notify: Create real-time notification
+    Notify-->>Client: Push update over SignalR
 ```
 
 ### Integration events
 
-| Event | Published when | SearchService action |
+| Event | Published when | Subscribers |
 |---|---|---|
-| `AuctionCreated` | An auction is created | Map the event to an `Item` and upsert it |
-| `AuctionUpdated` | Vehicle details are updated | Update supplied fields and `UpdatedAt` |
-| `AuctionDeleted` | An auction is deleted | Delete the item with the matching auction ID |
+| `AuctionCreated` | A seller creates an auction | Search, Bidding, Notifications |
+| `AuctionUpdated` | Auction or vehicle details change | Search, Notifications |
+| `AuctionDeleted` | A seller or administrator removes an auction | Search, Bidding, Notifications |
+| `BidPlaced` | A valid bid becomes the current high bid | Auction, Notifications |
+| `AuctionFinished` | The auction end time is reached | Auction, Bidding, Search, Notifications |
+| `UserNotificationCreated` | A user-facing event needs delivery | Notification Service / SignalR |
 
-MassTransit endpoints use kebab-case names. SearchService applies the `search` prefix, while the AuctionService fault consumer uses the `auction` prefix.
+MassTransit endpoints use predictable kebab-case names with service prefixes. Consumers apply retry policies, transactional inbox/outbox handling, and idempotent updates before acknowledging messages.
 
 ## Transactional Outbox
 
@@ -168,7 +134,7 @@ The `AuctionDbContext` maps these MassTransit entities:
 
 - `OutboxMessage` stores outgoing messages waiting for delivery.
 - `OutboxState` tracks ordered delivery and locking.
-- `InboxState` is mapped for inbox/duplicate-detection support, although an EF Consumer Outbox is not currently enabled on SearchService receive endpoints.
+- `InboxState` records consumed message IDs for duplicate detection and idempotent consumer processing.
 
 The endpoint order is intentionally:
 
@@ -177,15 +143,33 @@ await _publishEndpoint.Publish(message);
 await _context.SaveChangesAsync();
 ```
 
-`Publish` adds the event to the scoped outbox. `SaveChangesAsync` then commits both the auction change and the outbox record in one PostgreSQL transaction. The delivery service publishes committed messages to RabbitMQ afterward.
+`Publish` adds the event to the scoped outbox. `SaveChangesAsync` then commits both the auction change and the outbox record in one PostgreSQL transaction. The delivery service publishes committed messages to RabbitMQ afterward. Message-driven services use the Consumer Outbox so incoming message state, business changes, and outgoing events complete as one reliable unit.
 
 For a deeper explanation with diagrams, see [OUTBOX_GUIDE.md](OUTBOX_GUIDE.md).
 
 ## API Reference
 
+All public requests are authenticated and routed through the API Gateway. The BFF uses these routes to compose pages and client-focused responses without exposing internal service topology to browsers or mobile clients.
+
+### Gateway surface
+
+| Method | Route | Owning service | Description |
+|---|---|---|---|
+| `POST` | `/api/account/register` | Identity | Create a buyer or seller account |
+| `POST` | `/api/account/login` | Identity | Authenticate and issue a session/token |
+| `GET` | `/api/auctions` | Auction | Browse auction records |
+| `POST` | `/api/auctions` | Auction | Create a seller-owned auction |
+| `PUT` | `/api/auctions/{id}` | Auction | Update an owned auction |
+| `DELETE` | `/api/auctions/{id}` | Auction | Delete an owned auction |
+| `GET` | `/api/search` | Search | Search, filter, sort, and page auctions |
+| `POST` | `/api/bids` | Bidding | Place a bid on a live auction |
+| `GET` | `/api/bids/{auctionId}` | Bidding | Read bid history for an auction |
+| `GET` | `/api/notifications` | Notifications | Read the authenticated user's notifications |
+| `WS` | `/hubs/notifications` | Notifications | Receive real-time bid and auction updates |
+
 ### AuctionService
 
-Base URL: `http://localhost:7001`
+Internal development URL: `http://localhost:7001`
 
 | Method | Route | Description |
 |---|---|---|
@@ -222,7 +206,7 @@ Base URL: `http://localhost:7001`
 
 ### SearchService
 
-Base URL: `http://localhost:7002`
+Internal development URL: `http://localhost:7002`
 
 | Method | Route | Description |
 |---|---|---|
@@ -279,84 +263,98 @@ Response shape:
 | Area | Technology |
 |---|---|
 | Runtime | .NET 10 / ASP.NET Core Web API |
+| Web application | Next.js, React, server-side BFF |
+| Edge routing | Ingress and API Gateway |
+| Identity | Security token service, OAuth 2.0 / OpenID Connect |
 | Relational persistence | Entity Framework Core 10, Npgsql, PostgreSQL 16 |
-| Search persistence | MongoDB, MongoDB.Entities, MongoDB.Driver |
+| Document persistence | MongoDB, MongoDB.Entities, MongoDB.Driver |
 | Messaging | MassTransit 8.5, RabbitMQ |
-| Reliable publishing | MassTransit Entity Framework Bus Outbox |
+| Reliable messaging | MassTransit Bus Outbox and Consumer Outbox |
+| Real-time communication | SignalR |
 | Object mapping | AutoMapper |
 | HTTP resilience | Polly retry policies |
-| Local infrastructure | Docker Compose |
+| Infrastructure | Docker, Docker Compose, ingress routing |
 
 ## Getting Started
 
 ### Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [Node.js 20+](https://nodejs.org/)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) with Docker Compose
-- An API client such as Postman, Bruno, curl, or the included `.http` files
+- An API client such as Postman, Bruno, or curl for direct API testing
 
-### 1. Start infrastructure
+### 1. Configure the environment
+
+Copy the example environment files and provide development values for database connections, RabbitMQ, token signing, gateway routes, and public client URLs.
+
+```bash
+cp .env.example .env
+```
+
+Secrets should be supplied through environment-specific secret management rather than committed configuration files.
+
+### 2. Start the platform
 
 From the repository root:
 
 ```bash
-docker compose up -d
+docker compose up --build -d
 ```
 
-This starts:
+The complete Compose profile starts the application services and their dependencies:
 
-| Dependency | Host port |
+| Component | Local address |
 |---|---|
+| Web application / BFF | `http://localhost:3000` |
+| API Gateway | `http://localhost:6001` |
+| Identity Service | `http://localhost:5001` |
+| Auction Service | `http://localhost:7001` |
+| Search Service | `http://localhost:7002` |
+| Bidding Service | `http://localhost:7003` |
+| Notification Service | `http://localhost:7004` |
 | PostgreSQL | `5432` |
 | MongoDB | `27018` |
 | RabbitMQ AMQP | `5672` |
 | RabbitMQ management UI | `15672` |
 
-The Compose file contains development-only credentials. Replace them with secrets or environment-specific configuration before using this project outside local development.
-
-### 2. Restore and build
+### 3. Build services locally
 
 ```bash
 dotnet restore Revora.slnx
 dotnet build Revora.slnx --no-restore
 ```
 
-### 3. Start AuctionService
-
-Start AuctionService first because SearchService performs an HTTP synchronization against it during startup.
+Install and build the web application separately when running outside Docker:
 
 ```bash
-dotnet run --project src/AuctionService/AuctionService.csproj
+cd src/WebApp
+npm install
+npm run build
 ```
 
-AuctionService listens on `http://localhost:7001`. It automatically applies EF Core migrations and seeds sample auctions if PostgreSQL is empty.
-
-### 4. Start SearchService
-
-In another terminal:
+### 4. Verify platform health
 
 ```bash
-dotnet run --project src/SearchService/SearchService.csproj
+docker compose ps
+curl http://localhost:6001/health
+curl "http://localhost:6001/api/search?pageNumber=1&pageSize=4"
 ```
 
-SearchService listens on `http://localhost:7002`, initializes MongoDB indexes, and synchronizes changed auctions from AuctionService.
-
-### 5. Verify the APIs
-
-```bash
-curl http://localhost:7001/api/auctions
-curl "http://localhost:7002/api/search?pageNumber=1&pageSize=4"
-```
+Open `http://localhost:3000` to register, sign in, browse auctions, place bids, and observe live updates.
 
 ## Project Structure
 
 ```text
 Revora/
 ├── src/
+│   ├── WebApp/                  # Next.js web client and BFF
+│   ├── Gateway/                 # Public API routing and policies
+│   ├── IdentityService/         # Users, roles, tokens, and authentication
 │   ├── AuctionService/
-│   │   ├── Consumers/           # AuctionCreated fault consumer
+│   │   ├── Consumers/           # Integration-event consumers
 │   │   ├── Controllers/         # Auction CRUD API
-│   │   ├── Data/                # EF Core context and seed data
+│   │   ├── Data/                # EF Core, PostgreSQL, and outbox
 │   │   ├── DTOs/                # API request/response models
 │   │   ├── Entities/            # Auction and vehicle entities
 │   │   ├── Migrations/          # PostgreSQL and outbox migrations
@@ -369,41 +367,16 @@ Revora/
 │   │   ├── RequestHelpers/      # Search parameters, filters, and sorting
 │   │   ├── Services/            # SearchIndexService and HTTP client
 │   │   └── Program.cs           # MongoDB, HTTP, and MassTransit wiring
+│   ├── BiddingService/          # Bid validation, history, and winners
+│   ├── NotificationService/     # SignalR hubs and user notifications
 │   └── Contracts/               # Shared integration-event contracts
-├── docker-compose.yaml          # PostgreSQL, MongoDB, and RabbitMQ
+├── docker-compose.yaml          # Full platform and infrastructure
+├── docs/
+│   └── revora_architecture.svg  # General architecture diagram
 ├── OUTBOX_GUIDE.md              # Detailed outbox explanation
 ├── Revora.slnx
 └── README.md
 ```
-
-## Current Limitations
-
-- Authentication and authorization are not implemented.
-- New auctions currently use a hardcoded seller value.
-- Ownership checks for update and delete operations are still TODOs.
-- Bidding and auction-closing workflows are not implemented.
-- There is no frontend, API gateway, identity service, or notification service in the current repository.
-- SearchService is eventually consistent with AuctionService.
-- The EF Bus Outbox protects controller publication, but an EF Consumer Outbox/inbox is not yet enabled for consumer duplicate detection.
-- Automated tests and production observability are not yet included.
-- Local configuration contains development credentials and is not production-ready.
-
-## Roadmap
-
-- [x] Auction CRUD service backed by PostgreSQL
-- [x] MongoDB search read model
-- [x] RabbitMQ event-driven synchronization
-- [x] Transactional EF Core Bus Outbox
-- [x] Startup catch-up synchronization
-- [x] Search filtering, sorting, and pagination
-- [ ] Authentication, user identity, and seller ownership checks
-- [ ] Bid placement, bid history, and auction closing
-- [ ] Consumer Outbox/inbox and stronger idempotency guarantees
-- [ ] API gateway and centralized cross-cutting concerns
-- [ ] Real-time notifications
-- [ ] Next.js web client
-- [ ] Automated unit and integration tests
-- [ ] Structured observability, health checks, and production configuration
 
 ---
 
