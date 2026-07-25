@@ -102,6 +102,14 @@ internal static class HostingExtensions
         _ = builder.Services.AddDataProtection()
                    .SetApplicationName("IdentityServer");
 
+        builder.Services.ConfigureApplicationCookie(options =>
+        {
+            options.Cookie.Name = "IdentityService.Cookie";
+            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.ExpireTimeSpan = TimeSpan.FromHours(2);
+            options.SlidingExpiration = true;
+        });
+
         return builder.Build();
     }
 
