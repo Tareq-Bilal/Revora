@@ -39,8 +39,7 @@ Each service owns its persistence model. Transactional domains use PostgreSQL, s
 
 <div align="center">
 
-<img src="docs/revora_architecture.svg" alt="Revora general system architecture" width="100%" />
-
+<img width="2566" height="1664" alt="Gemini_Generated_Image_w7fxutw7fxutw7fx" src="https://github.com/user-attachments/assets/0a3b1e8a-4da0-49f8-a987-e660e1262294" />
 </div>
 
 The diagram presents Revora's general architecture: web and mobile clients enter through ingress, a Next.js BFF and API gateway route requests, independently owned services communicate through a publish/subscribe event bus, and SignalR carries real-time notifications back to clients.
