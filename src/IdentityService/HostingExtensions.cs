@@ -1,6 +1,7 @@
 using System.Globalization;
 using Duende.IdentityServer;
 using IdentityService.Data;
+using IdentityService.IdentityUi;
 using IdentityService.Models;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -49,7 +50,26 @@ internal static class HostingExtensions
 
     public static WebApplication ConfigureServices(this WebApplicationBuilder builder)
     {
-        _ = builder.Services.AddRazorPages();
+        _ = builder.Services.AddOpenApi();
+        _ = builder.Services.AddAntiforgery(options =>
+        {
+            options.HeaderName = "X-CSRF-TOKEN";
+            options.Cookie.Name = "IdentityService.Antiforgery";
+            options.Cookie.HttpOnly = true;
+            options.Cookie.SameSite = SameSiteMode.Strict;
+            options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+                ? CookieSecurePolicy.SameAsRequest
+                : CookieSecurePolicy.Always;
+        });
+        _ = builder.Services.AddReverseProxy()
+            .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+        _ = builder.Services.AddHttpClient("IdentityUi", client =>
+        {
+            client.BaseAddress = new Uri(
+                builder.Configuration["IdentityUi:BaseUrl"] ?? "http://127.0.0.1:3000",
+                UriKind.Absolute);
+            client.Timeout = TimeSpan.FromSeconds(2);
+        });
 
         _ = builder.Services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -65,6 +85,11 @@ internal static class HostingExtensions
                 options.Events.RaiseInformationEvents = true;
                 options.Events.RaiseFailureEvents = true;
                 options.Events.RaiseSuccessEvents = true;
+                options.UserInteraction.LoginUrl = "/Account/Login";
+                options.UserInteraction.LogoutUrl = "/Account/Logout";
+                options.UserInteraction.ConsentUrl = "/Consent";
+                options.UserInteraction.ErrorUrl = "/Error";
+                options.UserInteraction.DeviceVerificationUrl = "/Device";
 
                 // Use a large chunk size for diagnostic data in development where it will be redirected to a local file.
                 if (builder.Environment.IsDevelopment())
@@ -105,9 +130,42 @@ internal static class HostingExtensions
         builder.Services.ConfigureApplicationCookie(options =>
         {
             options.Cookie.Name = "IdentityService.Cookie";
+            options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = SameSiteMode.Lax;
+            options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+                ? CookieSecurePolicy.SameAsRequest
+                : CookieSecurePolicy.Always;
             options.ExpireTimeSpan = TimeSpan.FromHours(2);
             options.SlidingExpiration = true;
+            options.LoginPath = "/Account/Login";
+            options.LogoutPath = "/Account/Logout";
+            options.AccessDeniedPath = "/Account/AccessDenied";
+            options.Events.OnRedirectToLogin = context =>
+            {
+                if (context.Request.Path.StartsWithSegments("/api/identity-ui"))
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                }
+                else
+                {
+                    context.Response.Redirect(context.RedirectUri);
+                }
+
+                return Task.CompletedTask;
+            };
+            options.Events.OnRedirectToAccessDenied = context =>
+            {
+                if (context.Request.Path.StartsWithSegments("/api/identity-ui"))
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                }
+                else
+                {
+                    context.Response.Redirect(context.RedirectUri);
+                }
+
+                return Task.CompletedTask;
+            };
         });
 
         return builder.Build();
@@ -122,13 +180,47 @@ internal static class HostingExtensions
             _ = app.UseDeveloperExceptionPage();
         }
 
-        _ = app.UseStaticFiles();
         _ = app.UseRouting();
         _ = app.UseIdentityServer();
         _ = app.UseAuthorization();
 
-        _ = app.MapRazorPages()
-            .RequireAuthorization();
+        _ = app.MapIdentityUi();
+
+        if (app.Environment.IsDevelopment())
+        {
+            _ = app.MapOpenApi();
+        }
+
+        _ = app.MapGet("/health/identity-ui", async (
+            IHttpClientFactory httpClientFactory,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                using var response = await httpClientFactory
+                    .CreateClient("IdentityUi")
+                    .GetAsync("/", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                return response.IsSuccessStatusCode
+                    ? Results.Ok(new { status = "healthy" })
+                    : Results.Problem(
+                        "The Identity UI returned an unhealthy response.",
+                        statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+            catch (HttpRequestException)
+            {
+                return Results.Problem(
+                    "The Identity UI is unavailable.",
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return Results.Problem(
+                    "The Identity UI health check timed out.",
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+        }).ExcludeFromDescription();
+
+        _ = app.MapReverseProxy();
 
         return app;
     }
