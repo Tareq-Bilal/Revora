@@ -2,11 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  applyNavigation,
-  IdentityApiError,
-  identityMutation,
-} from "@/lib/api";
+import { applyNavigation, IdentityApiError, identityMutation } from "@/lib/api";
 import type { NavigationResponse, RegisterContext } from "@/lib/types";
 import { useIdentityData, useQueryParam } from "@/hooks/use-identity-data";
 import {
@@ -54,13 +50,17 @@ export function RegisterPage() {
     }
 
     try {
-      const response = await identityMutation<NavigationResponse>("/register", "POST", {
-        username,
-        email,
-        password,
-        confirmPassword,
-        returnUrl: returnUrl.value,
-      });
+      const response = await identityMutation<NavigationResponse>(
+        "/register",
+        "POST",
+        {
+          username,
+          email,
+          password,
+          confirmPassword,
+          returnUrl: returnUrl.value,
+        },
+      );
       applyNavigation(response);
     } catch (reason) {
       setPassword("");
@@ -69,7 +69,9 @@ export function RegisterPage() {
         setValidation(reason.problem?.errors ?? {});
       }
       setSubmitError(
-        reason instanceof Error ? reason.message : "Your account could not be created.",
+        reason instanceof Error
+          ? reason.message
+          : "Your account could not be created.",
       );
     } finally {
       setSubmitting(false);
@@ -97,7 +99,11 @@ export function RegisterPage() {
                 <Alert>{submitError}</Alert>
               </div>
             ) : null}
-            <Field label="Username" htmlFor="register-username" error={validation.username?.[0]}>
+            <Field
+              label="Username"
+              htmlFor="register-username"
+              error={validation.username?.[0]}
+            >
               <TextInput
                 id="register-username"
                 name="username"
@@ -109,7 +115,11 @@ export function RegisterPage() {
                 onChange={(event) => setUsername(event.target.value)}
               />
             </Field>
-            <Field label="Email" htmlFor="register-email" error={validation.email?.[0]}>
+            <Field
+              label="Email"
+              htmlFor="register-email"
+              error={validation.email?.[0]}
+            >
               <TextInput
                 id="register-email"
                 name="email"
@@ -121,7 +131,11 @@ export function RegisterPage() {
                 onChange={(event) => setEmail(event.target.value)}
               />
             </Field>
-            <Field label="Password" htmlFor="register-password" error={validation.password?.[0]}>
+            <Field
+              label="Password"
+              htmlFor="register-password"
+              error={validation.password?.[0]}
+            >
               <div className={styles.passwordRow}>
                 <TextInput
                   id="register-password"
@@ -136,7 +150,9 @@ export function RegisterPage() {
                 <button
                   type="button"
                   className={styles.revealButton}
-                  aria-label={showPasswords ? "Hide passwords" : "Show passwords"}
+                  aria-label={
+                    showPasswords ? "Hide passwords" : "Show passwords"
+                  }
                   onClick={() => setShowPasswords((value) => !value)}
                 >
                   {showPasswords ? "HIDE" : "SHOW"}
@@ -177,15 +193,18 @@ export function RegisterPage() {
             <h2 className={styles.sectionTitle}>Password standard</h2>
             <ul className={styles.requirementList}>
               <li>At least {requirements.requiredLength} characters</li>
-              <li>At least {requirements.requiredUniqueChars} unique characters</li>
-              {requirements.requireUppercase ? <li>One uppercase letter</li> : null}
-              {requirements.requireLowercase ? <li>One lowercase letter</li> : null}
+              <li>
+                At least {requirements.requiredUniqueChars} unique characters
+              </li>
+              {requirements.requireUppercase ? (
+                <li>One uppercase letter</li>
+              ) : null}
+              {requirements.requireLowercase ? (
+                <li>One lowercase letter</li>
+              ) : null}
               {requirements.requireDigit ? <li>One number</li> : null}
               {requirements.requireNonAlphanumeric ? <li>One symbol</li> : null}
             </ul>
-            <p className={styles.muted}>
-              Your password is sent only to Revora Identity and is never stored by the Next.js UI.
-            </p>
           </div>
         </Panel>
       </div>
