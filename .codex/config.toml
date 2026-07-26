@@ -1,0 +1,3 @@
+developer_instructions = """
+Before any UI work anywhere in Revora, read src/IdentityService/DESIGN-bmw-m.md in full. Treat its YAML front matter as the canonical design-token source. Extend that source before adding a token, regenerate derived token files, and run token freshness checks. Do not use unlicensed BMW logos, BMW-owned fonts, photography, or other imagery; use the Revora identity and documented Inter substitute. Preserve accessibility and use token-driven visual values.
+"""
