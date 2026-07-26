@@ -29,6 +29,20 @@
   color: var(--color-muted);
 }
 
+.inlineLink {
+  color: var(--color-on-dark);
+  font-weight: var(--type-button-font-weight);
+  letter-spacing: var(--type-caption-letter-spacing);
+}
+
+.requirementList {
+  margin: 0;
+  padding-left: var(--space-lg);
+  display: grid;
+  gap: var(--space-xs);
+  color: var(--color-body-strong);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

@@ -1,4 +1,5 @@
 using System.Buffers.Text;
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text;
@@ -41,6 +42,8 @@ internal static class IdentityUiEndpoints
 
         api.MapGet("/login-context", GetLoginContext).Produces<LoginContextResponse>().AllowAnonymous();
         api.MapPost("/login", Login).Produces<NavigationResponse>().ProducesValidationProblem().AllowAnonymous();
+        api.MapGet("/register-context", GetRegisterContext).Produces<RegisterContextResponse>().ProducesValidationProblem().AllowAnonymous();
+        api.MapPost("/register", Register).Produces<NavigationResponse>().ProducesValidationProblem().AllowAnonymous();
 
         api.MapGet("/logout-context", GetLogoutContext).Produces<LogoutContextResponse>().AllowAnonymous();
         api.MapPost("/logout", Logout).Produces<NavigationResponse>().ProducesValidationProblem().AllowAnonymous();
@@ -258,6 +261,116 @@ internal static class IdentityUiEndpoints
         }
 
         return Navigation(request.ReturnUrl);
+    }
+
+    private static async Task<IResult> GetRegisterContext(
+        HttpContext httpContext,
+        IIdentityServerInteractionService interaction,
+        IOptions<IdentityOptions> identityOptions,
+        string? returnUrl,
+        CancellationToken cancellationToken)
+    {
+        NoStore(httpContext);
+        if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            var authorizationContext =
+                await interaction.GetAuthorizationContextAsync(returnUrl, cancellationToken);
+            if (authorizationContext == null && !IsLocalUrl(returnUrl))
+            {
+                return Results.ValidationProblem(Errors("returnUrl", "The return URL is invalid."));
+            }
+        }
+
+        var password = identityOptions.Value.Password;
+        return Results.Ok(new RegisterContextResponse(
+            returnUrl,
+            new PasswordRequirementsDto(
+                password.RequiredLength,
+                password.RequiredUniqueChars,
+                password.RequireDigit,
+                password.RequireLowercase,
+                password.RequireUppercase,
+                password.RequireNonAlphanumeric)));
+    }
+
+    private static async Task<IResult> Register(
+        HttpContext httpContext,
+        RegisterRequest request,
+        IAntiforgery antiforgery,
+        IIdentityServerInteractionService interaction,
+        IEventService events,
+        UserManager<ApplicationUser> userManager,
+        SignInManager<ApplicationUser> signInManager,
+        CancellationToken cancellationToken)
+    {
+        NoStore(httpContext);
+        if (!await IsAntiforgeryValid(httpContext, antiforgery))
+        {
+            return AntiforgeryProblem();
+        }
+
+        var authorizationContext =
+            await interaction.GetAuthorizationContextAsync(request.ReturnUrl, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(request.ReturnUrl) &&
+            authorizationContext == null &&
+            !IsLocalUrl(request.ReturnUrl))
+        {
+            return Results.ValidationProblem(Errors("returnUrl", "The return URL is invalid."));
+        }
+
+        var validation = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var username = request.Username?.Trim();
+        var email = request.Email?.Trim();
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            validation["username"] = ["Username is required."];
+        }
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            validation["email"] = ["Email is required."];
+        }
+        else if (!new EmailAddressAttribute().IsValid(email))
+        {
+            validation["email"] = ["Enter a valid email address."];
+        }
+        if (string.IsNullOrEmpty(request.Password))
+        {
+            validation["password"] = ["Password is required."];
+        }
+        if (!string.Equals(request.Password, request.ConfirmPassword, StringComparison.Ordinal))
+        {
+            validation["confirmPassword"] = ["Passwords do not match."];
+        }
+        if (validation.Count > 0)
+        {
+            return Results.ValidationProblem(validation);
+        }
+
+        var user = new ApplicationUser
+        {
+            UserName = username,
+            Email = email
+        };
+        var result = await userManager.CreateAsync(user, request.Password!);
+        if (!result.Succeeded)
+        {
+            return Results.ValidationProblem(MapIdentityErrors(result.Errors));
+        }
+
+        await signInManager.SignInAsync(user, isPersistent: false);
+        await events.RaiseAsync(new UserLoginSuccessEvent(
+            user.UserName,
+            user.Id,
+            user.UserName,
+            clientId: authorizationContext?.Client.ClientId), cancellationToken);
+        UiTelemetry.Metrics.UserLogin(authorizationContext?.Client.ClientId, LocalProvider);
+
+        if (authorizationContext != null)
+        {
+            return NavigationForAuthorizationContext(authorizationContext, request.ReturnUrl);
+        }
+
+        return Navigation(string.IsNullOrWhiteSpace(request.ReturnUrl) ? "/" : request.ReturnUrl);
     }
 
     private static async Task<IResult> GetLogoutContext(
@@ -1237,6 +1350,29 @@ internal static class IdentityUiEndpoints
 
     private static Dictionary<string, string[]> Errors(string key, string message) =>
         new(StringComparer.Ordinal) { [key] = [message] };
+
+    private static Dictionary<string, string[]> MapIdentityErrors(IEnumerable<IdentityError> errors)
+    {
+        var mapped = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var error in errors)
+        {
+            var key = error.Code.Contains("Password", StringComparison.OrdinalIgnoreCase)
+                ? "password"
+                : error.Code.Contains("Email", StringComparison.OrdinalIgnoreCase)
+                    ? "email"
+                    : error.Code.Contains("User", StringComparison.OrdinalIgnoreCase)
+                        ? "username"
+                        : "registration";
+            if (!mapped.TryGetValue(key, out var messages))
+            {
+                messages = [];
+                mapped[key] = messages;
+            }
+            messages.Add(error.Description);
+        }
+
+        return mapped.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray(), StringComparer.Ordinal);
+    }
 
     private static void NoStore(HttpContext context) =>
         context.Response.Headers.CacheControl = "no-store, no-cache, max-age=0";

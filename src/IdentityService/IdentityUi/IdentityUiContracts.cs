@@ -37,6 +37,25 @@ public sealed record LoginRequest(
     string? Action,
     string? ReturnUrl);
 
+public sealed record PasswordRequirementsDto(
+    int RequiredLength,
+    int RequiredUniqueChars,
+    bool RequireDigit,
+    bool RequireLowercase,
+    bool RequireUppercase,
+    bool RequireNonAlphanumeric);
+
+public sealed record RegisterContextResponse(
+    string? ReturnUrl,
+    PasswordRequirementsDto PasswordRequirements);
+
+public sealed record RegisterRequest(
+    string? Username,
+    string? Email,
+    string? Password,
+    string? ConfirmPassword,
+    string? ReturnUrl);
+
 public sealed record LogoutContextResponse(
     string? LogoutId,
     bool ShowPrompt,

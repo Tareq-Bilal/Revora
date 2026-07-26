@@ -2,13 +2,8 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { applyNavigation, getAntiforgery, identityMutation } from "@/lib/api";
-import type {
-  LoggedOutContext,
-  LoginContext,
-  LogoutContext,
-  NavigationResponse,
-} from "@/lib/types";
+import { applyNavigation, identityMutation } from "@/lib/api";
+import type { LoginContext, NavigationResponse } from "@/lib/types";
 import { useIdentityData, useQueryParam } from "@/hooks/use-identity-data";
 import {
   Alert,
@@ -19,8 +14,8 @@ import {
   PageHeader,
   Panel,
   TextInput,
-} from "./ui";
-import styles from "./pages.module.css";
+} from "../ui";
+import styles from "../pages.module.css";
 
 export function LoginPage() {
   const returnUrl = useQueryParam("returnUrl");
@@ -150,6 +145,15 @@ export function LoginPage() {
                   </Button>
                 ) : null}
               </div>
+              <p className={styles.muted}>
+                New to Revora?{" "}
+                <Link
+                  className={styles.inlineLink}
+                  href={`/Account/Register${returnUrl.value ? `?returnUrl=${encodeURIComponent(returnUrl.value)}` : ""}`}
+                >
+                  CREATE ACCOUNT
+                </Link>
+              </p>
             </form>
           </Panel>
         ) : (
@@ -178,129 +182,5 @@ export function LoginPage() {
         </Panel>
       </div>
     </>
-  );
-}
-
-export function LogoutPage() {
-  const logoutId = useQueryParam("logoutId");
-  const path = logoutId.ready
-    ? `/logout-context${logoutId.value ? `?logoutId=${encodeURIComponent(logoutId.value)}` : ""}`
-    : null;
-  const { data, error, loading } = useIdentityData<LogoutContext>(path);
-  const [requestToken, setRequestToken] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    getAntiforgery().then((token) => setRequestToken(token.requestToken)).catch(() => null);
-  }, []);
-
-  useEffect(() => {
-    if (data?.autoSubmit && requestToken) formRef.current?.requestSubmit();
-  }, [data?.autoSubmit, requestToken]);
-
-  if (loading || !logoutId.ready) return <LoadingState />;
-  if (error) return <Alert>{error}</Alert>;
-  if (!data) return null;
-
-  return (
-    <div className={styles.singleColumn}>
-      <PageHeader
-        eyebrow="Session control"
-        title="Sign out"
-        description="End your Revora identity session on this browser."
-      />
-      <Panel>
-        <form ref={formRef} className={styles.form} method="post" action="/api/identity-ui/logout">
-          <input type="hidden" name="logoutId" value={data.logoutId ?? ""} />
-          <input type="hidden" name="__RequestVerificationToken" value={requestToken ?? ""} />
-          {data.showPrompt ? (
-            <>
-              <p>Do you want to sign out of Revora Identity?</p>
-              <div className={styles.actions}>
-                <Button type="submit" disabled={!requestToken}>
-                  SIGN OUT
-                </Button>
-                <Button type="button" variant="secondary" onClick={() => history.back()}>
-                  STAY SIGNED IN
-                </Button>
-              </div>
-            </>
-          ) : (
-            <LoadingState label="Closing your secure session" />
-          )}
-        </form>
-      </Panel>
-    </div>
-  );
-}
-
-export function LoggedOutPage() {
-  const logoutId = useQueryParam("logoutId");
-  const path = logoutId.ready
-    ? `/logged-out-context${logoutId.value ? `?logoutId=${encodeURIComponent(logoutId.value)}` : ""}`
-    : null;
-  const { data, error, loading } = useIdentityData<LoggedOutContext>(path);
-
-  useEffect(() => {
-    if (data?.automaticRedirectAfterSignOut && data.postLogoutRedirectUri) {
-      window.location.replace(data.postLogoutRedirectUri);
-    }
-  }, [data]);
-
-  if (loading || !logoutId.ready) return <LoadingState />;
-  if (error) return <Alert>{error}</Alert>;
-  if (!data) return null;
-
-  return (
-    <div className={styles.singleColumn}>
-      <PageHeader
-        eyebrow="Session complete"
-        title="Signed out"
-        description={
-          data.clientName
-            ? `Your session with ${data.clientName} has ended.`
-            : "Your Revora identity session has ended."
-        }
-      />
-      <Panel>
-        <div className={styles.form}>
-          <p>You can safely close this browser tab.</p>
-          {data.postLogoutRedirectUri ? (
-            <div className={styles.actions}>
-              <a className={styles.actionLink} href={data.postLogoutRedirectUri}>
-                RETURN TO {data.clientName?.toUpperCase() ?? "APPLICATION"}
-              </a>
-            </div>
-          ) : (
-            <Link className={styles.actionLink} href="/">
-              RETURN TO IDENTITY HOME
-            </Link>
-          )}
-          {data.signOutIframeUrl ? (
-            <iframe
-              title="Client sign-out notification"
-              className={styles.iframe}
-              src={data.signOutIframeUrl}
-            />
-          ) : null}
-        </div>
-      </Panel>
-    </div>
-  );
-}
-
-export function AccessDeniedPage() {
-  return (
-    <div className={styles.singleColumn}>
-      <p className={styles.statusCode}>403</p>
-      <PageHeader
-        eyebrow="Authorization"
-        title="Access denied"
-        description="Your account is authenticated, but it is not authorized to access this resource."
-      />
-      <Link className={styles.actionLink} href="/">
-        RETURN TO IDENTITY HOME
-      </Link>
-    </div>
   );
 }

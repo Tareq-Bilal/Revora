@@ -264,6 +264,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/identity-ui/register-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    returnUrl?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RegisterContextResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity-ui/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RegisterRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NavigationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity-ui/logout-context": {
         parameters: {
             query?: never;
@@ -1032,6 +1126,16 @@ export interface components {
         NavigationResponse: {
             navigation: components["schemas"]["NavigationDto"];
         };
+        PasswordRequirementsDto: {
+            /** Format: int32 */
+            requiredLength: number | string;
+            /** Format: int32 */
+            requiredUniqueChars: number | string;
+            requireDigit: boolean;
+            requireLowercase: boolean;
+            requireUppercase: boolean;
+            requireNonAlphanumeric: boolean;
+        };
         PendingCibaRequestDto: {
             id: string;
             clientId: string;
@@ -1040,6 +1144,17 @@ export interface components {
         };
         RedirectContextResponse: {
             redirectUri: string;
+        };
+        RegisterContextResponse: {
+            returnUrl: null | string;
+            passwordRequirements: components["schemas"]["PasswordRequirementsDto"];
+        };
+        RegisterRequest: {
+            username: null | string;
+            email: null | string;
+            password: null | string;
+            confirmPassword: null | string;
+            returnUrl: null | string;
         };
         ResourceDto: {
             name: null | string;

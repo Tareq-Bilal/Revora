@@ -1,4 +1,4 @@
-import { LogoutPage } from "@/components/account-pages";
+import { LogoutPage } from "@/components/account/logout-page";
 
 export const metadata = { title: "Sign out" };
 

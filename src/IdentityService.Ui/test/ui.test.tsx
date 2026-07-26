@@ -48,4 +48,5 @@ describe("identity UI controls", () => {
     expect(confirm).toHaveBeenCalledOnce();
     expect(cancel).not.toHaveBeenCalled();
   });
+
 });

@@ -30,6 +30,18 @@ export type LoginContext = {
   externalLoginUrl: string | null;
 };
 
+export type RegisterContext = {
+  returnUrl: string | null;
+  passwordRequirements: {
+    requiredLength: number;
+    requiredUniqueChars: number;
+    requireDigit: boolean;
+    requireLowercase: boolean;
+    requireUppercase: boolean;
+    requireNonAlphanumeric: boolean;
+  };
+};
+
 export type LogoutContext = {
   logoutId: string | null;
   showPrompt: boolean;
