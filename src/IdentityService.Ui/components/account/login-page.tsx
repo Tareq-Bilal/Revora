@@ -76,7 +76,7 @@ export function LoginPage() {
       />
       <div className={styles.authGrid}>
         {data.enableLocalLogin ? (
-          <Panel>
+          <Panel className={styles.authFormPanel}>
             <form
               className={styles.form}
               onSubmit={(event: FormEvent) => {

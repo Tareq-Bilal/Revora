@@ -11,7 +11,7 @@ colors:
   muted: "#7e7e7e"
   hairline: "#3c3c3c"
   hairline-strong: "#262626"
-  canvas: "#000000"
+  canvas: "#262626"
   surface-card: "#1a1a1a"
   surface-elevated: "#262626"
   surface-soft: "#0d0d0d"
@@ -297,14 +297,14 @@ components:
 
 ## Overview
 
-BMW M's marketing surface is a near-pure black canvas (`{colors.canvas}` — #000) holding white BMW Type Next Latin headlines in **confident UPPERCASE**. The system has no decorative voltage of its own; brand energy comes from **full-bleed automotive photography** — cars cornering at speed, carbon-fiber wheel detail, driver cockpit shots, motorsport pit lanes — placed as edge-to-edge content that fills entire bands. UI chrome around the photography stays minimal: thin sans-serif copy, dividers as 1px hairlines (`{colors.hairline}`), all-caps button labels with no fill until hovered.
+BMW M's marketing surface is adapted for Revora on a dark graphite canvas (`{colors.canvas}` — #262626) holding white BMW Type Next Latin headlines in **confident UPPERCASE**. The system has no decorative voltage of its own; brand energy comes from **full-bleed automotive photography** — cars cornering at speed, carbon-fiber wheel detail, driver cockpit shots, motorsport pit lanes — placed as edge-to-edge content that fills entire bands. UI chrome around the photography stays minimal: thin sans-serif copy, dividers as 1px hairlines (`{colors.hairline}`), all-caps button labels with no fill until hovered.
 
 The **M tricolor stripe** — `{colors.m-blue-light}` (#0066b1) → `{colors.m-blue-dark}` (#1c69d4) → `{colors.m-red}` (#e22718) — appears sparingly as the brand's signature accent, used on the M wordmark, motorsport chrome, vehicle-tech callouts, and model badges. It is never a CTA color and never used as a background fill — the tricolor is exclusively a brand-identity marker.
 
 Type voice runs **BMW Type Next Latin** in two cuts: regular for display + nav labels and Light for body + secondary copy. Display sizes use weight 700 (BMW's signature heavy-but-tight setting), while body type drops to weight 300 (Light). The contrast between heavy display and light body is the system's editorial signature.
 
 **Key Characteristics:**
-- Near-pure black canvas (`{colors.canvas}` — #000) with white type. The system inverts almost nothing — there is no light-mode marketing surface.
+- Dark graphite canvas (`{colors.canvas}` — #262626) with white type. The system inverts almost nothing — there is no light-mode marketing surface.
 - Display headlines in UPPERCASE BMW Type Next Latin at weight 700. Sub-heads stay sentence-case at lighter weight.
 - M tricolor (`{colors.m-blue-light}` / `{colors.m-blue-dark}` / `{colors.m-red}`) used as 4px brand-stripe dividers, M-wordmark accents, and motorsport chrome — never as buttons or fills.
 - Photography fills entire bands edge-to-edge. Cars are always the visual subject; UI chrome backs off to small white labels overlaid on photography.
@@ -322,10 +322,10 @@ Type voice runs **BMW Type Next Latin** in two cuts: regular for display + nav l
 - **Electric Blue** (`{colors.electric-blue}` — #0653b6): A separate electric-vehicle accent used on M xDrive electric model pages. Distinct from the heritage blue — feels colder, more digital.
 
 ### Surface
-- **Canvas** (`{colors.canvas}` — #000000): The default page floor across every marketing surface. True black.
+- **Canvas** (`{colors.canvas}` — #262626): The default Revora page floor across every Identity surface.
 - **Surface Soft** (`{colors.surface-soft}` — #0d0d0d): A barely-different-from-black used for spec table cells and footer-adjacent strips.
 - **Surface Card** (`{colors.surface-card}` — #1a1a1a): Cards, secondary buttons, icon-button backgrounds.
-- **Surface Elevated** (`{colors.surface-elevated}` — #262626): One step lighter, used for nested cards inside dark bands.
+- **Surface Elevated** (`{colors.surface-elevated}` — #262626): Used for nested controls and overlays on darker component surfaces.
 - **Carbon Gray** (`{colors.carbon-gray}` — #2b2b2b): Carbon-fiber-inspired surface tone used on technical-spec cards.
 
 ### Hairlines & Borders
@@ -396,7 +396,7 @@ If BMW Type Next Latin is unavailable, **Inter** (variable) at 700/300 is the cl
 - **Footer:** 4-column link list at desktop, 2-up at tablet, 1-up at mobile.
 
 ### Whitespace Philosophy
-BMW M trusts photography to do the visual work. Whitespace around photography is restrained — the cars fill the frame, and copy sits below or beside them in tightly-aligned columns. Where whitespace appears (between body sections, around CTAs), it's always uniform `{spacing.section}` (96px). The system never adds atmospheric backdrops, gradients, or decoration — empty space stays as empty black canvas.
+BMW M trusts photography to do the visual work. Whitespace around photography is restrained — the cars fill the frame, and copy sits below or beside them in tightly-aligned columns. Where whitespace appears (between body sections, around CTAs), it's always uniform `{spacing.section}` (96px). The system never adds atmospheric backdrops, gradients, or decoration — empty space stays as the dark graphite canvas.
 
 ## Elevation & Depth
 
@@ -407,7 +407,7 @@ BMW M trusts photography to do the visual work. Whitespace around photography is
 | Card surface | `{colors.surface-card}` background over canvas — no shadow | Feature photo cards, magazine cards, chatbot launcher |
 | Photographic depth | Full-bleed photography with edge-to-edge crop | Hero bands, motorsport features — depth via subject matter, not chrome |
 
-The system uses no drop shadows and no layered chrome. Depth comes entirely from photography (subject + lens + lighting) and the contrast between black canvas and slightly-elevated `{colors.surface-card}`.
+The system uses no drop shadows and no layered chrome. Depth comes entirely from photography (subject + lens + lighting) and the contrast among the graphite canvas and component surfaces.
 
 ### Decorative Depth
 - **M Stripe Divider** (`{component.m-stripe-divider}`): A 4px-tall horizontal divider carrying the M tricolor (`{colors.m-blue-light}` → `{colors.m-blue-dark}` → `{colors.m-red}`). Used on motorsport chrome, model-detail headers, and brand-identity moments. The stripe is the system's only true "decorative" element — used sparingly to mark significance.
@@ -435,7 +435,7 @@ Hero photography fills full-width with no rounding. Photo cards inside grids ret
 
 ### Top Navigation
 
-**`top-nav`** — Black nav bar pinned to the top of every page. 64px tall, `{colors.canvas}` background. Carries the BMW M logo at left (M tricolor + BMW roundel + "M" wordmark), primary horizontal menu (Models, Topics, Magazine, Configurator, Fastlane), right-side cluster with language selector, search icon, account icon. Menu items render in `{typography.nav-link}` with sentence-case labels.
+**`top-nav`** — Dark graphite nav bar pinned to the top of every page. 64px tall, `{colors.canvas}` background. Carries the BMW M logo at left (M tricolor + BMW roundel + "M" wordmark), primary horizontal menu (Models, Topics, Magazine, Configurator, Fastlane), right-side cluster with language selector, search icon, account icon. Menu items render in `{typography.nav-link}` with sentence-case labels.
 
 ### Buttons
 
@@ -453,11 +453,11 @@ Hero photography fills full-width with no rounding. Photo cards inside grids ret
 
 ### Cards & Containers
 
-**`hero-photo-band`** — Full-width black band with full-bleed automotive photography filling most of the frame. The h1 uses `{typography.display-xl}` (80px / 700) and sits left-aligned over the photo, often with a small subtitle in `{typography.body-md}` below. Vertical padding `{spacing.xxl}` (64px). No card frame — the photo IS the band.
+**`hero-photo-band`** — Full-width graphite band with full-bleed automotive photography filling most of the frame. The h1 uses `{typography.display-xl}` (80px / 700) and sits left-aligned over the photo, often with a small subtitle in `{typography.body-md}` below. Vertical padding `{spacing.xxl}` (64px). No card frame — the photo IS the band.
 
 **`feature-photo-card`** — Used in 3-up grids for "MORE FROM BMW M MAGAZINE" and similar editorial sections. Background `{colors.surface-card}`, rounded `{rounded.none}`, internal padding `{spacing.lg}` (24px). Top half of the card is a 16:9 photo (full-bleed within the card); below the photo, a category tag in `{typography.label-uppercase}`, a `{typography.title-lg}` title, and a short body description.
 
-**`model-card`** — Used in the "MORE NEW M MODELS" 3-up grid. Background `{colors.canvas}` (no card surface — just photo on black), rounded `{rounded.none}`. Top: 16:10 hero shot of the model. Below: model name in `{typography.display-md}` (40px / 700), short specs line in `{typography.body-sm}`, a `{component.text-link}` ("EXPLORE THIS MODEL").
+**`model-card`** — Used in the "MORE NEW M MODELS" 3-up grid. Background `{colors.canvas}` (no separate card surface), rounded `{rounded.none}`. Top: 16:10 hero shot of the model. Below: model name in `{typography.display-md}` (40px / 700), short specs line in `{typography.body-sm}`, a `{component.text-link}` ("EXPLORE THIS MODEL").
 
 **`magazine-article-card`** — A more text-forward card variant used on the magazine overview page. Background `{colors.canvas}` with hairline border, rounded `{rounded.none}`. Carries a small thumbnail at top, a category label in `{typography.label-uppercase}`, headline in `{typography.title-lg}`, and a body excerpt.
 
@@ -483,7 +483,7 @@ Hero photography fills full-width with no rounding. Photo cards inside grids ret
 
 ### Footer
 
-**`footer`** — Black footer that closes every page. Background `{colors.canvas}`, text `{colors.body}`. 4-column link list at desktop covering BMW M Models / BMW M Lifestyle / Owners / Company. Vertical padding 64px. Bottom row carries the BMW corporate disclaimer in `{typography.caption}` and language selector. The footer never inverts — it stays black even when the body might transition.
+**`footer`** — Dark graphite footer that closes every page. Background `{colors.canvas}`, text `{colors.body}`. 4-column link list at desktop covering BMW M Models / BMW M Lifestyle / Owners / Company. Vertical padding 64px. Bottom row carries the BMW corporate disclaimer in `{typography.caption}` and language selector. The footer never inverts — it stays on the graphite canvas even when the body might transition.
 
 ## Do's and Don'ts
 
@@ -500,7 +500,7 @@ Hero photography fills full-width with no rounding. Photo cards inside grids ret
 - Don't introduce a brand color outside the M tricolor (`{colors.m-blue-light}` / `{colors.m-blue-dark}` / `{colors.m-red}`) and the heritage `{colors.bmw-blue}`.
 - Don't bold body type. Body stays at 300 (Light) — bumping to 400 or 500 makes the page feel marketing-bombastic instead of European-engineered.
 - Don't use rounded buttons. The rectangular silhouette IS the brand. Rounded corners read as consumer-tech, not motorsport.
-- Don't put gradient backdrops behind hero type. The hero IS the photography — the page floor stays pure black, and the photo provides the depth.
+- Don't put gradient backdrops behind hero type. The hero IS the photography — the page floor stays graphite, and the photo provides the depth.
 - Don't repeat the same surface mode in two consecutive bands. Rhythm: photo band → spec table → photo band → magazine grid → photo band. Two text-only bands in a row read as a corporate site.
 - Don't use the M stripe as a button fill. The stripe is a divider / accent — never an action surface.
 - Don't bold uppercase tracking under 1.5px on button labels — the spacing is what makes them feel "machined."
@@ -547,7 +547,7 @@ Hero photography fills full-width with no rounding. Photo cards inside grids ret
 
 ## Identity UI Profile
 
-The Revora Identity UI applies this system without automotive photography until a repository-owned, licensed image set is explicitly provided. Authentication and authorization pages use the black canvas, surface hierarchy, hairlines, uppercase display type, sharp controls, generous spacing, and restrained tricolor divider as their visual structure.
+The Revora Identity UI applies this system without automotive photography until a repository-owned, licensed image set is explicitly provided. Authentication and authorization pages use the graphite canvas, surface hierarchy, hairlines, uppercase display type, sharp controls, generous spacing, and restrained tricolor divider as their visual structure.
 
 - Use the Revora wordmark rather than BMW logos or BMW-owned marks.
 - Use self-hosted Inter at weights 300, 400, and 700 when BMW Type Next Latin is unavailable.
@@ -557,7 +557,7 @@ The Revora Identity UI applies this system without automotive photography until 
 
 ## Known Gaps
 
-- The dembrandt frequency analyzer captured the white text (count 955) as the highest-frequency token. The black canvas was inferred from screenshot — dembrandt's body-background sampling didn't surface it as a top palette entry, but the page is unambiguously black-on-white-text.
+- The original reference analysis inferred a black canvas from the screenshots. Revora intentionally overrides that reference floor with the canonical graphite `{colors.canvas}` token.
 - The exact M tricolor stops are documented from public BMW brand guidelines; the screenshots show the stripe as a small element but pixel-sampling at this resolution doesn't reliably distinguish #0066b1 from #1c69d4. Treat the documented stops as canonical based on BMW Design Works' published brand spec.
 - BMW Type Next Latin weight axis values beyond Light (300) and regular (700) are not documented — only the static weights observed in screenshots.
 - Animation and transition timings (photo carousel transitions, hover-reveal effects, configurator interactions) are not in scope.

@@ -11,6 +11,10 @@
   margin: 0 auto;
 }
 
+.authFormPanel {
+  background: var(--color-surface-card);
+}
+
 .form {
   display: grid;
   gap: var(--space-lg);
@@ -29,7 +33,12 @@
   color: var(--color-muted);
 }
 
+.authFormPanel .muted {
+  color: var(--color-body);
+}
+
 .inlineLink {
+  margin-left: var(--space-xs);
   color: var(--color-on-dark);
   font-weight: var(--type-button-font-weight);
   letter-spacing: var(--type-caption-letter-spacing);
@@ -86,6 +95,10 @@
 
 .passwordRow input {
   min-width: 0;
+}
+
+.authFormPanel input:not([type="checkbox"]) {
+  background: var(--color-surface-elevated);
 }
 
 .revealButton {

@@ -46,9 +46,9 @@
   min-width: 144px;
   min-height: var(--component-button-primary-height);
   padding: var(--component-button-primary-padding);
-  color: var(--color-on-dark);
-  background: transparent;
-  border: var(--rounded-xs) solid var(--color-on-dark);
+  color: var(--component-button-primary-text-color);
+  background: var(--component-button-primary-background-color);
+  border: var(--rounded-xs) solid var(--color-hairline);
   border-radius: var(--radius-none);
   font-size: var(--type-button-font-size);
   font-weight: var(--type-button-font-weight);
@@ -58,7 +58,8 @@
   cursor: pointer;
   transition:
     color var(--motion-fast) var(--motion-easing),
-    background var(--motion-fast) var(--motion-easing);
+    background var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing);
 }
 
 .button:disabled {
@@ -70,10 +71,16 @@
 .button:focus-visible:not(:disabled) {
   color: var(--color-on-primary);
   background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.primary {
+  border-color: var(--color-body);
 }
 
 .secondary {
   color: var(--color-body);
+  background: transparent;
   border-color: var(--color-hairline);
 }
 
@@ -86,6 +93,7 @@
 .danger:focus-visible:not(:disabled) {
   color: var(--color-canvas);
   background: var(--color-danger);
+  border-color: var(--color-danger);
 }
 
 .field {

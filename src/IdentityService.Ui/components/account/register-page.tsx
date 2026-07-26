@@ -91,7 +91,7 @@ export function RegisterPage() {
         description="Create your Revora identity and continue securely to the requesting application."
       />
       <div className={styles.authGrid}>
-        <Panel>
+        <Panel className={styles.authFormPanel}>
           <form className={styles.form} onSubmit={submit}>
             <h2 className={styles.sectionTitle}>Account details</h2>
             {submitError ? (

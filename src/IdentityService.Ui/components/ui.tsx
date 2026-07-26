@@ -22,8 +22,16 @@ export function PageHeader({
   );
 }
 
-export function Panel({ children, compact = false }: { children: React.ReactNode; compact?: boolean }) {
-  return <section className={`${styles.panel} ${compact ? styles.compact : ""}`}>{children}</section>;
+export function Panel({
+  children,
+  compact = false,
+  className = "",
+}: {
+  children: React.ReactNode;
+  compact?: boolean;
+  className?: string;
+}) {
+  return <section className={`${styles.panel} ${compact ? styles.compact : ""} ${className}`}>{children}</section>;
 }
 
 export const Button = forwardRef<
