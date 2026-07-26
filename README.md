@@ -342,6 +342,29 @@ curl "http://localhost:6001/api/search?pageNumber=1&pageSize=4"
 
 Open `http://localhost:3000` to register, sign in, browse auctions, place bids, and observe live updates.
 
+### Identity UI development
+
+The IdentityServer authority remains `http://localhost:5001`. Its React UI runs
+as a private Next.js process on `127.0.0.1:3000`; ASP.NET proxies only the UI
+routes and strips authentication and authorization headers before forwarding
+them to Node.
+
+```powershell
+cd src\IdentityService.Ui
+npm install
+npm run dev
+```
+
+In another terminal:
+
+```powershell
+dotnet run --project src\IdentityService\IdentityService.csproj
+```
+
+Browse the Identity UI through `http://localhost:5001`, never through the
+private Node address. When running the full Revora WebApp locally, use containers
+or a separate host binding because that application also uses host port `3000`.
+
 ## Project Structure
 
 ```text
