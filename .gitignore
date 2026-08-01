@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# superpowers brainstorming companion
+.superpowers/
+
 # User-specific files
 *.rsuser
 *.suo
