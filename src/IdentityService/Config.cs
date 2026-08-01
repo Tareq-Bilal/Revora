@@ -1,3 +1,5 @@
+using Contracts;
+using Duende.IdentityModel;
 using Duende.IdentityServer.Models;
 
 namespace IdentityService;
@@ -14,11 +16,45 @@ public static class Config
     public static IEnumerable<ApiScope> ApiScopes =>
         new ApiScope[]
         {
-            new ApiScope("scope1"),
-            new ApiScope("scope2"),
+            new(RevoraAuth.InternalSyncScope, "Synchronize the auction search index"),
+            new(RevoraAuth.UserApiScope, "Read and manage auctions as a signed-in user"),
         };
 
-    public static IEnumerable<Client> Clients =>
+    public static IEnumerable<ApiResource> ApiResources =>
+        new ApiResource[]
+        {
+            new(RevoraAuth.AuctionApiAudience, "Revora Auction API")
+            {
+                Scopes =
+                {
+                    RevoraAuth.InternalSyncScope,
+                    RevoraAuth.UserApiScope,
+                },
+                UserClaims =
+                {
+                    JwtClaimTypes.Name,
+                    JwtClaimTypes.PreferredUserName,
+                },
+            },
+            new(RevoraAuth.SearchApiAudience, "Revora Search API")
+            {
+                Scopes =
+                {
+                    RevoraAuth.UserApiScope,
+                },
+            },
+        };
+
+    public static IEnumerable<Client> GetClients(IConfiguration configuration)
+    {
+        var machineSecret = GetRequiredSecret(
+            configuration,
+            "IdentityClients:Machine:ClientSecret");
+        var interactiveSecret = GetRequiredSecret(
+            configuration,
+            "IdentityClients:Interactive:ClientSecret");
+
+        return
         new Client[]
         {
             // m2m client credentials flow client
@@ -28,16 +64,16 @@ public static class Config
                 ClientName = "Client Credentials Client",
 
                 AllowedGrantTypes = GrantTypes.ClientCredentials,
-                ClientSecrets = { new Secret("511536EF-F270-4058-80CA-1C89C192F69A".Sha256()) },
+                ClientSecrets = { new Secret(machineSecret.Sha256()) },
 
-                AllowedScopes = { "scope1" }
+                AllowedScopes = { RevoraAuth.InternalSyncScope }
             },
 
             // interactive client using code flow + pkce
             new Client
             {
                 ClientId = "interactive",
-                ClientSecrets = { new Secret("49C1A7E1-0C79-4A89-A3D6-A37998FB86B0".Sha256()) },
+                ClientSecrets = { new Secret(interactiveSecret.Sha256()) },
 
                 AllowedGrantTypes = GrantTypes.Code,
 
@@ -46,7 +82,17 @@ public static class Config
                 PostLogoutRedirectUris = { "https://localhost:44300/signout-callback-oidc" },
 
                 AllowOfflineAccess = true,
-                AllowedScopes = { "openid", "profile", "scope2" }
+                AllowedScopes = { "openid", "profile", RevoraAuth.UserApiScope }
             },
         };
+    }
+
+    private static string GetRequiredSecret(IConfiguration configuration, string key)
+    {
+        var value = configuration[key];
+        return !string.IsNullOrWhiteSpace(value)
+            ? value
+            : throw new InvalidOperationException(
+                $"Required IdentityServer secret '{key}' is not configured.");
+    }
 }

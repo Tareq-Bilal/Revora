@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>IdentityService</RootNamespace>
     <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+    <UserSecretsId>revora-identity-service</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Duende.IdentityServer.AspNetIdentity" Version="8.0.2" />
@@ -18,5 +19,8 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Contracts\Contracts.csproj" />
   </ItemGroup>
 </Project>
