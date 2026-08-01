@@ -246,13 +246,6 @@
   font-size: var(--type-title-md-font-size);
 }
 
-.clientHeader code {
-  margin-top: var(--space-xs);
-  display: block;
-  color: var(--color-body-strong);
-  font-size: var(--type-title-sm-font-size);
-}
-
 .dialogBackdrop {
   position: fixed;
   z-index: 100;

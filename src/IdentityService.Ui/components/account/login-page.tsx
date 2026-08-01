@@ -36,10 +36,6 @@ export function LoginPage() {
   }, [data?.username]);
 
   useEffect(() => {
-    if (data?.externalLoginUrl) window.location.replace(data.externalLoginUrl);
-  }, [data?.externalLoginUrl]);
-
-  useEffect(() => {
     if (submitError) errorRef.current?.focus();
   }, [submitError]);
 
@@ -161,25 +157,6 @@ export function LoginPage() {
             <Alert>Local account sign-in is disabled for this client.</Alert>
           </Panel>
         )}
-
-        <Panel compact>
-          <div className={styles.form}>
-            <h2 className={styles.sectionTitle}>External account</h2>
-            {data.externalProviders.length > 0 ? (
-              <ul className={styles.providerList}>
-                {data.externalProviders.map((provider) => (
-                  <li key={provider.authenticationScheme}>
-                    <a className={styles.providerLink} href={provider.challengeUrl}>
-                      {provider.displayName}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className={styles.muted}>No external identity provider is available.</p>
-            )}
-          </div>
-        </Panel>
       </div>
     </>
   );

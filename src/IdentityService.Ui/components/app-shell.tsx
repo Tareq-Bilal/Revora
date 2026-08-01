@@ -36,9 +36,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           aria-label="Identity navigation"
         >
           <a href="/Grants">Permissions</a>
-          <a href="/Ciba/All">Requests</a>
-          {session?.isLocalRequest ? <a href="/Diagnostics">Diagnostics</a> : null}
-          {session?.isLocalRequest ? <a href="/ServerSideSessions">Sessions</a> : null}
           {session?.isAuthenticated ? (
             <a href="/Account/Logout">{session.displayName ?? "Sign out"}</a>
           ) : (

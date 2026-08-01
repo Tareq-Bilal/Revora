@@ -1,24 +1,10 @@
 export type NavigationResponse = {
-  navigation: { kind: "redirect" | "native-loading"; url: string };
+  navigation: { kind: "redirect"; url: string };
 };
 
 export type SessionResponse = {
   isAuthenticated: boolean;
   displayName: string | null;
-  isLocalRequest: boolean;
-};
-
-export type HomeResponse = {
-  version: string;
-  licenseConfigured: boolean;
-  licenseSerialNumber: string | null;
-  licenseExpiration: string | null;
-};
-
-export type ExternalProvider = {
-  authenticationScheme: string;
-  displayName: string;
-  challengeUrl: string;
 };
 
 export type LoginContext = {
@@ -26,8 +12,6 @@ export type LoginContext = {
   username: string | null;
   enableLocalLogin: boolean;
   allowRememberLogin: boolean;
-  externalProviders: ExternalProvider[];
-  externalLoginUrl: string | null;
 };
 
 export type RegisterContext = {
@@ -82,36 +66,6 @@ export type ConsentContext = {
   apiScopes: Scope[];
 };
 
-export type DeviceContext = {
-  userCode: string | null;
-  hasRequest: boolean;
-  error: string | null;
-  client: ClientContext | null;
-  identityScopes: Scope[];
-  apiScopes: Scope[];
-};
-
-export type CibaRequest = {
-  id: string;
-  client: ClientContext;
-  bindingMessage: string | null;
-};
-
-export type PendingCibaRequest = {
-  id: string;
-  clientId: string;
-  clientName: string | null;
-  bindingMessage: string | null;
-};
-
-export type CibaConsentContext = {
-  id: string;
-  client: ClientContext;
-  bindingMessage: string | null;
-  identityScopes: Scope[];
-  apiScopes: Scope[];
-};
-
 export type Grant = {
   clientId: string;
   clientName: string;
@@ -124,39 +78,11 @@ export type Grant = {
   apiGrantNames: string[];
 };
 
-export type Diagnostics = {
-  claims: Array<{ name: string; value: string | null }>;
-  properties: Array<{ name: string; value: string | null }>;
-  clients: string[];
-};
-
-export type UserSession = {
-  subjectId: string;
-  sessionId: string;
-  displayName: string | null;
-  created: string;
-  expires: string | null;
-  clientIds: string[];
-};
-
-export type Sessions = {
-  enabled: boolean;
-  results: UserSession[];
-  resultsToken: string | null;
-  hasPreviousResults: boolean;
-  hasNextResults: boolean;
-  totalCount: number | null;
-  currentPage: number | null;
-  totalPages: number | null;
-};
-
 export type ErrorContext = {
   error: string;
   errorDescription: string | null;
   requestId: string | null;
 };
-
-export type RedirectContext = { redirectUri: string };
 
 export type ProblemDetails = {
   title?: string;

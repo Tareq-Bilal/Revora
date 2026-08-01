@@ -145,11 +145,9 @@ export function ScopeList({
 export function ClientHeader({
   name,
   url,
-  bindingMessage,
 }: {
   name: string | null;
   url?: string | null;
-  bindingMessage?: string | null;
 }) {
   return (
     <div className={styles.clientHeader}>
@@ -163,7 +161,6 @@ export function ClientHeader({
         ) : (
           <strong>{name ?? "Unknown client"}</strong>
         )}
-        {bindingMessage ? <code>{bindingMessage}</code> : null}
       </div>
     </div>
   );
