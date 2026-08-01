@@ -349,6 +349,34 @@ as a private Next.js process on `127.0.0.1:3000`; ASP.NET proxies only the UI
 routes and strips authentication and authorization headers before forwarding
 them to Node.
 
+For a junior-friendly explanation of cookies, tokens, scopes, clients, API
+policies, client credentials and auction ownership, read
+[AUTHENTICATION_GUIDE.md](AUTHENTICATION_GUIDE.md).
+
+Configure development client secrets outside the repository before starting the
+services. The machine secret must have the same value in IdentityService and
+SearchService:
+
+```powershell
+dotnet user-secrets set "IdentityClients:Machine:ClientSecret" "<machine-secret>" --project src\IdentityService\IdentityService.csproj
+dotnet user-secrets set "IdentityClients:Interactive:ClientSecret" "<interactive-secret>" --project src\IdentityService\IdentityService.csproj
+dotnet user-secrets set "IdentityService:ClientSecret" "<machine-secret>" --project src\SearchService\SearchService.csproj
+```
+
+IdentityServer issues `scope1` to the SearchService machine client and `scope2`
+to the interactive client. The scopes retain their existing names for client
+compatibility:
+
+| Scope | Audience | Use |
+|---|---|---|
+| `scope1` | `auction-api` | SearchService startup synchronization |
+| `scope2` | `auction-api`, `search-api` | Authenticated user API operations |
+
+Auction reads remain public. `POST`, `PUT`, and `DELETE` require a valid
+`scope2` access token, and update/delete also require ownership. The internal
+`GET /api/auctions/sync` route requires the SearchService client-credentials
+token with `scope1`.
+
 ```powershell
 cd src\IdentityService.Ui
 npm install
