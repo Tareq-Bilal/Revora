@@ -1,23 +1,15 @@
-using System.Buffers.Text;
 using System.ComponentModel.DataAnnotations;
-using System.Reflection;
-using System.Security.Claims;
-using System.Text;
-using System.Text.Json;
 using Duende.IdentityModel;
 using Duende.IdentityServer;
 using Duende.IdentityServer.Events;
 using Duende.IdentityServer.Extensions;
-using Duende.IdentityServer.Licensing;
 using Duende.IdentityServer.Models;
 using Duende.IdentityServer.Services;
 using Duende.IdentityServer.Stores;
 using Duende.IdentityServer.Validation;
 using IdentityService.Models;
 using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using UiTelemetry = IdentityService.IdentityUi.IdentityUiTelemetry;
 
@@ -36,9 +28,7 @@ internal static class IdentityUiEndpoints
 
         api.MapGet("/session", GetSession).Produces<SessionResponse>().AllowAnonymous();
         api.MapGet("/antiforgery", GetAntiforgery).Produces<AntiforgeryResponse>().AllowAnonymous();
-        api.MapGet("/home", GetHome).Produces<HomeResponse>().AllowAnonymous();
         api.MapGet("/error", GetError).Produces<ErrorContextResponse>().AllowAnonymous();
-        api.MapGet("/redirect-context", GetRedirectContext).Produces<RedirectContextResponse>().AllowAnonymous();
 
         api.MapGet("/login-context", GetLoginContext).Produces<LoginContextResponse>().AllowAnonymous();
         api.MapPost("/login", Login).Produces<NavigationResponse>().ProducesValidationProblem().AllowAnonymous();
@@ -52,42 +42,9 @@ internal static class IdentityUiEndpoints
         api.MapGet("/consent-context", GetConsentContext).Produces<ConsentContextResponse>().RequireAuthorization();
         api.MapPost("/consent", SubmitConsent).Produces<NavigationResponse>().ProducesValidationProblem().RequireAuthorization();
 
-        api.MapGet("/device-context", GetDeviceContext).Produces<DeviceContextResponse>().RequireAuthorization();
-        api.MapPost("/device", SubmitDevice).Produces<NavigationResponse>().ProducesValidationProblem().RequireAuthorization();
-
-        api.MapGet("/ciba/request", GetCibaRequest).Produces<CibaRequestResponse>().AllowAnonymous();
-        api.MapGet("/ciba/pending", GetPendingCibaRequests).Produces<IReadOnlyCollection<PendingCibaRequestDto>>().RequireAuthorization();
-        api.MapGet("/ciba/consent-context", GetCibaConsentContext).Produces<CibaConsentContextResponse>().RequireAuthorization();
-        api.MapPost("/ciba/consent", SubmitCibaConsent).Produces<NavigationResponse>().ProducesValidationProblem().RequireAuthorization();
-
         api.MapGet("/grants", GetGrants).Produces<IReadOnlyCollection<GrantDto>>().RequireAuthorization();
         api.MapDelete("/grants/{clientId}", RevokeGrant).Produces(StatusCodes.Status204NoContent).RequireAuthorization();
 
-        api.MapGet("/diagnostics", (Delegate)GetDiagnostics).Produces<DiagnosticsResponse>().RequireAuthorization();
-        api.MapGet("/sessions", GetSessions).Produces<SessionsResponse>().RequireAuthorization();
-        api.MapDelete("/sessions/{sessionId}", DeleteSession).Produces(StatusCodes.Status204NoContent).RequireAuthorization();
-
-        endpoints.MapGet("/ExternalLogin/Challenge", ChallengeExternalLogin)
-            .AllowAnonymous()
-            .ExcludeFromDescription();
-        endpoints.MapGet("/ExternalLogin/Callback", async (
-                HttpContext httpContext,
-                IIdentityServerInteractionService interaction,
-                IEventService events,
-                UserManager<ApplicationUser> userManager,
-                SignInManager<ApplicationUser> signInManager,
-                ILoggerFactory loggerFactory,
-                CancellationToken cancellationToken) =>
-            await ExternalLoginCallback(
-                httpContext,
-                interaction,
-                events,
-                userManager,
-                signInManager,
-                loggerFactory,
-                cancellationToken))
-            .AllowAnonymous()
-            .ExcludeFromDescription();
         endpoints.MapGet("/Home/Error/Index", (string? errorId) =>
                 Results.Redirect($"/Error{(string.IsNullOrEmpty(errorId) ? string.Empty : $"?errorId={Uri.EscapeDataString(errorId)}")}"))
             .AllowAnonymous()
@@ -101,8 +58,7 @@ internal static class IdentityUiEndpoints
         NoStore(context);
         return Results.Ok(new SessionResponse(
             context.User.Identity?.IsAuthenticated == true,
-            context.User.GetDisplayName(),
-            !context.Connection.IsRemote()));
+            context.User.GetDisplayName()));
     }
 
     private static IResult GetAntiforgery(HttpContext context, IAntiforgery antiforgery)
@@ -112,22 +68,6 @@ internal static class IdentityUiEndpoints
         return Results.Ok(new AntiforgeryResponse(
             tokens.RequestToken ?? throw new InvalidOperationException("Antiforgery request token was not generated."),
             tokens.HeaderName ?? "X-CSRF-TOKEN"));
-    }
-
-    private static IResult GetHome(HttpContext context)
-    {
-        NoStore(context);
-        var license = context.RequestServices.GetService<LicenseInformation>();
-        var version = typeof(Duende.IdentityServer.Hosting.IdentityServerMiddleware).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion.Split('+').First()
-            ?? "unavailable";
-
-        return Results.Ok(new HomeResponse(
-            version,
-            license?.IsConfigured == true,
-            license?.SerialNumber.ToString(),
-            license?.Expiration));
     }
 
     private static async Task<IResult> GetError(
@@ -145,36 +85,19 @@ internal static class IdentityUiEndpoints
             error?.RequestId));
     }
 
-    private static IResult GetRedirectContext(
-        HttpContext context,
-        IIdentityServerInteractionService interaction,
-        string? redirectUri)
-    {
-        NoStore(context);
-        if (!IsLocalUrl(redirectUri) || !interaction.IsValidReturnUrl(redirectUri))
-        {
-            return Results.ValidationProblem(Errors("redirectUri", "The redirect URL is invalid."));
-        }
-
-        return Results.Ok(new RedirectContextResponse(redirectUri!));
-    }
-
     private static async Task<IResult> GetLoginContext(
         HttpContext httpContext,
         IIdentityServerInteractionService interaction,
-        IAuthenticationSchemeProvider schemeProvider,
-        IIdentityProviderStore identityProviderStore,
         string? returnUrl,
         CancellationToken cancellationToken)
     {
         NoStore(httpContext);
-        var model = await BuildLoginContext(
-            interaction,
-            schemeProvider,
-            identityProviderStore,
+        var context = await interaction.GetAuthorizationContextAsync(returnUrl, cancellationToken);
+        return Results.Ok(new LoginContextResponse(
             returnUrl,
-            cancellationToken);
-        return Results.Ok(model);
+            context?.LoginHint,
+            context?.Client?.EnableLocalLogin ?? true,
+            AllowRememberLogin: true));
     }
 
     private static async Task<IResult> Login(
@@ -200,7 +123,7 @@ internal static class IdentityUiEndpoints
             if (authorizationContext != null)
             {
                 await interaction.DenyAuthorizationAsync(authorizationContext, InteractionError.AccessDenied, cancellationToken);
-                return NavigationForAuthorizationContext(authorizationContext, request.ReturnUrl);
+                return NavigationForAuthorizationContext(request.ReturnUrl);
             }
 
             return Navigation("/");
@@ -247,7 +170,7 @@ internal static class IdentityUiEndpoints
 
         if (authorizationContext != null)
         {
-            return NavigationForAuthorizationContext(authorizationContext, request.ReturnUrl);
+            return NavigationForAuthorizationContext(request.ReturnUrl);
         }
 
         if (string.IsNullOrWhiteSpace(request.ReturnUrl))
@@ -367,7 +290,7 @@ internal static class IdentityUiEndpoints
 
         if (authorizationContext != null)
         {
-            return NavigationForAuthorizationContext(authorizationContext, request.ReturnUrl);
+            return NavigationForAuthorizationContext(request.ReturnUrl);
         }
 
         return Navigation(string.IsNullOrWhiteSpace(request.ReturnUrl) ? "/" : request.ReturnUrl);
@@ -424,14 +347,6 @@ internal static class IdentityUiEndpoints
             await signInManager.SignOutAsync();
             await events.RaiseAsync(new UserLogoutSuccessEvent(subjectId, displayName), cancellationToken);
             UiTelemetry.Metrics.UserLogout(idp);
-
-            if (!string.IsNullOrEmpty(idp) &&
-                idp != LocalProvider &&
-                await httpContext.GetSchemeSupportsSignOutAsync(idp))
-            {
-                var redirectUri = LoggedOutUrl(logoutId);
-                return Results.SignOut(new AuthenticationProperties { RedirectUri = redirectUri }, [idp]);
-            }
         }
 
         return Results.Redirect(LoggedOutUrl(logoutId));
@@ -470,7 +385,13 @@ internal static class IdentityUiEndpoints
             return Results.NotFound();
         }
 
-        return Results.Ok(BuildConsentContext(request, returnUrl));
+        var scopes = BuildConsentScopes(request);
+        return Results.Ok(new ConsentContextResponse(
+            returnUrl,
+            Client(request.Client),
+            request.Client.AllowRememberConsent,
+            scopes.Identity,
+            scopes.Api));
     }
 
     private static async Task<IResult> SubmitConsent(
@@ -545,239 +466,7 @@ internal static class IdentityUiEndpoints
         }
 
         await interaction.GrantConsentAsync(request, response, cancellationToken);
-        return NavigationForAuthorizationContext(request, input.ReturnUrl);
-    }
-
-    private static async Task<IResult> GetDeviceContext(
-        HttpContext httpContext,
-        IDeviceFlowInteractionService interaction,
-        string? userCode,
-        CancellationToken cancellationToken)
-    {
-        NoStore(httpContext);
-        if (string.IsNullOrWhiteSpace(userCode))
-        {
-            return Results.Ok(new DeviceContextResponse(
-                null,
-                false,
-                null,
-                null,
-                [],
-                []));
-        }
-
-        var request = await interaction.GetAuthorizationContextAsync(userCode, cancellationToken);
-        if (request == null)
-        {
-            return Results.Ok(new DeviceContextResponse(
-                userCode,
-                false,
-                "Invalid user code",
-                null,
-                [],
-                []));
-        }
-
-        var scopes = BuildDeviceScopes(request);
-        return Results.Ok(new DeviceContextResponse(
-            userCode,
-            true,
-            null,
-            Client(request.Client),
-            scopes.Identity,
-            scopes.Api));
-    }
-
-    private static async Task<IResult> SubmitDevice(
-        HttpContext httpContext,
-        DeviceRequest input,
-        IAntiforgery antiforgery,
-        IDeviceFlowInteractionService interaction,
-        IEventService events,
-        CancellationToken cancellationToken)
-    {
-        NoStore(httpContext);
-        if (!await IsAntiforgeryValid(httpContext, antiforgery))
-        {
-            return AntiforgeryProblem();
-        }
-        if (string.IsNullOrWhiteSpace(input.UserCode))
-        {
-            return Results.ValidationProblem(Errors("userCode", "A user code is required."));
-        }
-
-        var request = await interaction.GetAuthorizationContextAsync(input.UserCode, cancellationToken);
-        if (request == null)
-        {
-            return Results.NotFound();
-        }
-
-        ConsentResponse response;
-        if (string.Equals(input.Action, "no", StringComparison.OrdinalIgnoreCase))
-        {
-            response = new ConsentResponse { Error = InteractionError.AccessDenied };
-            await events.RaiseAsync(new ConsentDeniedEvent(
-                httpContext.User.GetSubjectId(),
-                request.Client.ClientId,
-                request.ValidatedResources.RawScopeValues), cancellationToken);
-            UiTelemetry.Metrics.ConsentDenied(
-                request.Client.ClientId,
-                request.ValidatedResources.ParsedScopes.Select(scope => scope.ParsedName));
-        }
-        else if (string.Equals(input.Action, "yes", StringComparison.OrdinalIgnoreCase))
-        {
-            var validation = ValidateScopes(BuildDeviceScopes(request), input.ScopesConsented);
-            if (!validation.IsValid)
-            {
-                return Results.ValidationProblem(Errors("scopesConsented", validation.Error!));
-            }
-
-            response = new ConsentResponse
-            {
-                RememberConsent = false,
-                ScopesValuesConsented = validation.Scopes,
-                Description = input.Description
-            };
-            await events.RaiseAsync(new ConsentGrantedEvent(
-                httpContext.User.GetSubjectId(),
-                request.Client.ClientId,
-                request.ValidatedResources.RawScopeValues,
-                response.ScopesValuesConsented,
-                false), cancellationToken);
-            UiTelemetry.Metrics.ConsentGranted(request.Client.ClientId, response.ScopesValuesConsented, false);
-        }
-        else
-        {
-            return Results.ValidationProblem(Errors("action", "Invalid device authorization selection."));
-        }
-
-        await interaction.HandleRequestAsync(input.UserCode, response, cancellationToken);
-        return Navigation("/Device/Success");
-    }
-
-    private static async Task<IResult> GetCibaRequest(
-        HttpContext httpContext,
-        IBackchannelAuthenticationInteractionService interaction,
-        string? id,
-        CancellationToken cancellationToken)
-    {
-        NoStore(httpContext);
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            return Results.ValidationProblem(Errors("id", "A backchannel login ID is required."));
-        }
-
-        var request = await interaction.GetLoginRequestByInternalIdAsync(id, cancellationToken);
-        return request == null
-            ? Results.NotFound()
-            : Results.Ok(new CibaRequestResponse(id, Client(request.Client), request.BindingMessage));
-    }
-
-    private static async Task<IResult> GetPendingCibaRequests(
-        HttpContext httpContext,
-        IBackchannelAuthenticationInteractionService interaction,
-        CancellationToken cancellationToken)
-    {
-        NoStore(httpContext);
-        var requests = await interaction.GetPendingLoginRequestsForCurrentUserAsync(cancellationToken);
-        return Results.Ok(requests.Select(request => new PendingCibaRequestDto(
-            request.InternalId,
-            request.Client.ClientId,
-            request.Client.ClientName,
-            request.BindingMessage)).ToArray());
-    }
-
-    private static async Task<IResult> GetCibaConsentContext(
-        HttpContext httpContext,
-        IBackchannelAuthenticationInteractionService interaction,
-        string? id,
-        CancellationToken cancellationToken)
-    {
-        NoStore(httpContext);
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            return Results.ValidationProblem(Errors("id", "A backchannel login ID is required."));
-        }
-
-        var request = await interaction.GetLoginRequestByInternalIdAsync(id, cancellationToken);
-        if (request == null || request.Subject.GetSubjectId() != httpContext.User.GetSubjectId())
-        {
-            return Results.NotFound();
-        }
-
-        var scopes = BuildCibaScopes(request);
-        return Results.Ok(new CibaConsentContextResponse(
-            id,
-            Client(request.Client),
-            request.BindingMessage,
-            scopes.Identity,
-            scopes.Api));
-    }
-
-    private static async Task<IResult> SubmitCibaConsent(
-        HttpContext httpContext,
-        CibaConsentRequest input,
-        IAntiforgery antiforgery,
-        IBackchannelAuthenticationInteractionService interaction,
-        IEventService events,
-        CancellationToken cancellationToken)
-    {
-        NoStore(httpContext);
-        if (!await IsAntiforgeryValid(httpContext, antiforgery))
-        {
-            return AntiforgeryProblem();
-        }
-        if (string.IsNullOrWhiteSpace(input.Id))
-        {
-            return Results.ValidationProblem(Errors("id", "A backchannel login ID is required."));
-        }
-
-        var request = await interaction.GetLoginRequestByInternalIdAsync(input.Id, cancellationToken);
-        if (request == null || request.Subject.GetSubjectId() != httpContext.User.GetSubjectId())
-        {
-            return Results.NotFound();
-        }
-
-        CompleteBackchannelLoginRequest response;
-        if (string.Equals(input.Action, "no", StringComparison.OrdinalIgnoreCase))
-        {
-            response = new CompleteBackchannelLoginRequest(input.Id);
-            await events.RaiseAsync(new ConsentDeniedEvent(
-                httpContext.User.GetSubjectId(),
-                request.Client.ClientId,
-                request.ValidatedResources.RawScopeValues), cancellationToken);
-            UiTelemetry.Metrics.ConsentDenied(
-                request.Client.ClientId,
-                request.ValidatedResources.ParsedScopes.Select(scope => scope.ParsedName));
-        }
-        else if (string.Equals(input.Action, "yes", StringComparison.OrdinalIgnoreCase))
-        {
-            var validation = ValidateScopes(BuildCibaScopes(request), input.ScopesConsented);
-            if (!validation.IsValid)
-            {
-                return Results.ValidationProblem(Errors("scopesConsented", validation.Error!));
-            }
-
-            response = new CompleteBackchannelLoginRequest(input.Id)
-            {
-                ScopesValuesConsented = validation.Scopes,
-                Description = input.Description
-            };
-            await events.RaiseAsync(new ConsentGrantedEvent(
-                httpContext.User.GetSubjectId(),
-                request.Client.ClientId,
-                request.ValidatedResources.RawScopeValues,
-                response.ScopesValuesConsented,
-                false), cancellationToken);
-            UiTelemetry.Metrics.ConsentGranted(request.Client.ClientId, response.ScopesValuesConsented, false);
-        }
-        else
-        {
-            return Results.ValidationProblem(Errors("action", "Invalid backchannel authorization selection."));
-        }
-
-        await interaction.CompleteLoginRequestAsync(response, cancellationToken);
-        return Navigation("/Ciba/All");
+        return NavigationForAuthorizationContext(input.ReturnUrl);
     }
 
     private static async Task<IResult> GetGrants(
@@ -844,368 +533,17 @@ internal static class IdentityUiEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> GetDiagnostics(HttpContext httpContext)
-    {
-        NoStore(httpContext);
-        if (httpContext.Connection.IsRemote())
-        {
-            return Results.NotFound();
-        }
-
-        var result = await httpContext.AuthenticateAsync();
-        var claims = result.Principal?.Claims
-            .Select(claim => new DiagnosticsItemDto(claim.Type, claim.Value))
-            .ToArray() ?? [];
-        var properties = result.Properties?.Items
-            .Select(item => new DiagnosticsItemDto(item.Key, item.Value))
-            .ToArray() ?? [];
-
-        var clients = Array.Empty<string>();
-        if (result.Properties?.Items.TryGetValue("client_list", out var encoded) == true &&
-            !string.IsNullOrWhiteSpace(encoded))
-        {
-            var bytes = Base64Url.DecodeFromChars(encoded);
-            clients = JsonSerializer.Deserialize<string[]>(Encoding.UTF8.GetString(bytes)) ?? [];
-        }
-
-        return Results.Ok(new DiagnosticsResponse(claims, properties, clients));
-    }
-
-    private static async Task<IResult> GetSessions(
-        HttpContext httpContext,
-        string? displayName,
-        string? sessionId,
-        string? subjectId,
-        string? token,
-        bool previous,
-        CancellationToken cancellationToken)
-    {
-        NoStore(httpContext);
-        if (httpContext.Connection.IsRemote())
-        {
-            return Results.NotFound();
-        }
-
-        var service = httpContext.RequestServices.GetService<ISessionManagementService>();
-        if (service == null)
-        {
-            return Results.Ok(new SessionsResponse(false, [], null, false, false, null, null, null));
-        }
-
-        var query = await service.QuerySessionsAsync(new SessionQuery
-        {
-            ResultsToken = token,
-            RequestPriorResults = previous,
-            DisplayName = displayName,
-            SessionId = sessionId,
-            SubjectId = subjectId
-        }, cancellationToken);
-
-        var sessions = query.Results.Select(session => new UserSessionDto(
-            session.SubjectId,
-            session.SessionId,
-            session.DisplayName,
-            session.Created,
-            session.Expires,
-            session.ClientIds?.ToArray() ?? [])).ToArray();
-
-        return Results.Ok(new SessionsResponse(
-            true,
-            sessions,
-            query.ResultsToken,
-            query.HasPrevResults,
-            query.HasNextResults,
-            query.TotalCount,
-            query.CurrentPage,
-            query.TotalPages));
-    }
-
-    private static async Task<IResult> DeleteSession(
-        HttpContext httpContext,
-        string sessionId,
-        IAntiforgery antiforgery,
-        CancellationToken cancellationToken)
-    {
-        NoStore(httpContext);
-        if (httpContext.Connection.IsRemote())
-        {
-            return Results.NotFound();
-        }
-        if (!await IsAntiforgeryValid(httpContext, antiforgery))
-        {
-            return AntiforgeryProblem();
-        }
-
-        var service = httpContext.RequestServices.GetService<ISessionManagementService>();
-        if (service == null)
-        {
-            return Results.Problem("Server-side sessions are not enabled.", statusCode: StatusCodes.Status409Conflict);
-        }
-
-        await service.RemoveSessionsAsync(new RemoveSessionsContext { SessionId = sessionId }, cancellationToken);
-        return Results.NoContent();
-    }
-
-    private static IResult ChallengeExternalLogin(
-        string scheme,
-        string? returnUrl,
-        IIdentityServerInteractionService interaction)
-    {
-        returnUrl = string.IsNullOrWhiteSpace(returnUrl) ? "/" : returnUrl;
-        if (!IsLocalUrl(returnUrl) && !interaction.IsValidReturnUrl(returnUrl))
-        {
-            return Results.ValidationProblem(Errors("returnUrl", "The return URL is invalid."));
-        }
-
-        var properties = new AuthenticationProperties
-        {
-            RedirectUri = "/ExternalLogin/Callback",
-            Items =
-            {
-                ["returnUrl"] = returnUrl,
-                ["scheme"] = scheme
-            }
-        };
-
-        return Results.Challenge(properties, [scheme]);
-    }
-
-    private static async Task<IResult> ExternalLoginCallback(
-        HttpContext httpContext,
-        IIdentityServerInteractionService interaction,
-        IEventService events,
-        UserManager<ApplicationUser> userManager,
-        SignInManager<ApplicationUser> signInManager,
-        ILoggerFactory loggerFactory,
-        CancellationToken cancellationToken)
-    {
-        var result = await httpContext.AuthenticateAsync(IdentityServerConstants.ExternalCookieAuthenticationScheme);
-        if (result.Succeeded != true)
-        {
-            return Results.Problem($"External authentication error: {result.Failure?.Message}");
-        }
-
-        var externalUser = result.Principal;
-        if (externalUser == null)
-        {
-            return Results.Problem("External authentication produced no user.");
-        }
-
-        var logger = loggerFactory.CreateLogger("IdentityService.IdentityUi.ExternalLogin");
-        if (logger.IsEnabled(LogLevel.Debug))
-        {
-            logger.LogDebug(
-                "External claims received: {ClaimTypes}",
-                externalUser.Claims.Select(claim => claim.Type).ToArray());
-        }
-
-        var userIdClaim = externalUser.FindFirst(JwtClaimTypes.Subject) ??
-                          externalUser.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null)
-        {
-            return Results.Problem("The external provider did not return a user identifier.");
-        }
-
-        if (result.Properties?.Items.TryGetValue("scheme", out var provider) != true ||
-            string.IsNullOrWhiteSpace(provider))
-        {
-            return Results.Problem("The external authentication scheme was not preserved.");
-        }
-
-        var user = await userManager.FindByLoginAsync(provider, userIdClaim.Value);
-        if (user == null)
-        {
-            user = await AutoProvisionUser(
-                provider,
-                userIdClaim.Value,
-                externalUser.Claims.ToList(),
-                userManager);
-        }
-
-        var localClaims = new List<Claim>
-        {
-            new(JwtClaimTypes.IdentityProvider, provider)
-        };
-        var localProperties = new AuthenticationProperties();
-        var sessionId = externalUser.FindFirst(JwtClaimTypes.SessionId);
-        if (sessionId != null)
-        {
-            localClaims.Add(new Claim(JwtClaimTypes.SessionId, sessionId.Value));
-        }
-        var idToken = result.Properties?.GetTokenValue("id_token");
-        if (!string.IsNullOrWhiteSpace(idToken))
-        {
-            localProperties.StoreTokens([new AuthenticationToken { Name = "id_token", Value = idToken }]);
-        }
-
-        await signInManager.SignInWithClaimsAsync(user, localProperties, localClaims);
-        await httpContext.SignOutAsync(IdentityServerConstants.ExternalCookieAuthenticationScheme);
-
-        var returnUrl = result.Properties?.Items["returnUrl"] ?? "/";
-        var authorizationContext = await interaction.GetAuthorizationContextAsync(returnUrl, cancellationToken);
-        await events.RaiseAsync(new UserLoginSuccessEvent(
-            provider,
-            userIdClaim.Value,
-            user.Id,
-            user.UserName,
-            true,
-            authorizationContext?.Client.ClientId), cancellationToken);
-        UiTelemetry.Metrics.UserLogin(authorizationContext?.Client.ClientId, provider);
-
-        var destination = authorizationContext?.IsNativeClient() == true
-            ? NativeLoadingUrl(returnUrl)
-            : returnUrl;
-        return Results.Redirect(destination);
-    }
-
-    private static async Task<ApplicationUser> AutoProvisionUser(
-        string provider,
-        string providerUserId,
-        List<Claim> claims,
-        UserManager<ApplicationUser> userManager)
-    {
-        claims.RemoveAll(claim => claim.Type is JwtClaimTypes.Subject or ClaimTypes.NameIdentifier);
-        var user = new ApplicationUser
-        {
-            Id = Guid.NewGuid().ToString(),
-            UserName = Guid.NewGuid().ToString(),
-            Email = claims.FirstOrDefault(claim => claim.Type is JwtClaimTypes.Email or ClaimTypes.Email)?.Value
-        };
-
-        var name = claims.FirstOrDefault(claim => claim.Type is JwtClaimTypes.Name or ClaimTypes.Name)?.Value;
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            var first = claims.FirstOrDefault(claim => claim.Type is JwtClaimTypes.GivenName or ClaimTypes.GivenName)?.Value;
-            var last = claims.FirstOrDefault(claim => claim.Type is JwtClaimTypes.FamilyName or ClaimTypes.Surname)?.Value;
-            name = string.Join(' ', new[] { first, last }.Where(part => !string.IsNullOrWhiteSpace(part)));
-        }
-
-        var result = await userManager.CreateAsync(user);
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException(result.Errors.First().Description);
-        }
-        if (!string.IsNullOrWhiteSpace(name))
-        {
-            result = await userManager.AddClaimAsync(user, new Claim(JwtClaimTypes.Name, name));
-            if (!result.Succeeded)
-            {
-                throw new InvalidOperationException(result.Errors.First().Description);
-            }
-        }
-
-        result = await userManager.AddLoginAsync(user, new UserLoginInfo(provider, providerUserId, provider));
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException(result.Errors.First().Description);
-        }
-
-        return user;
-    }
-
-    private static async Task<LoginContextResponse> BuildLoginContext(
-        IIdentityServerInteractionService interaction,
-        IAuthenticationSchemeProvider schemeProvider,
-        IIdentityProviderStore identityProviderStore,
-        string? returnUrl,
-        CancellationToken cancellationToken)
-    {
-        var context = await interaction.GetAuthorizationContextAsync(returnUrl, cancellationToken);
-        var username = context?.LoginHint;
-        var providers = new List<(string Scheme, string DisplayName)>();
-        var enableLocalLogin = true;
-
-        if (!string.IsNullOrWhiteSpace(context?.IdP))
-        {
-            var scheme = await schemeProvider.GetSchemeAsync(context.IdP);
-            if (scheme != null)
-            {
-                var local = context.IdP == LocalProvider;
-                enableLocalLogin = local;
-                if (!local)
-                {
-                    providers.Add((context.IdP, scheme.DisplayName ?? context.IdP));
-                }
-            }
-        }
-        else
-        {
-            providers.AddRange((await schemeProvider.GetAllSchemesAsync())
-                .Where(scheme => scheme.DisplayName != null)
-                .Select(scheme => (scheme.Name, scheme.DisplayName ?? scheme.Name)));
-            providers.AddRange((await identityProviderStore.GetAllSchemeNamesAsync(cancellationToken))
-                .Where(scheme => scheme.Enabled)
-                .Select(scheme => (scheme.Scheme, scheme.DisplayName ?? scheme.Scheme)));
-
-            if (context?.Client != null)
-            {
-                enableLocalLogin = context.Client.EnableLocalLogin;
-                if (context.Client.IdentityProviderRestrictions?.Count > 0)
-                {
-                    providers = providers
-                        .Where(provider => context.Client.IdentityProviderRestrictions.Contains(provider.Scheme))
-                        .ToList();
-                }
-            }
-        }
-
-        var externalProviders = providers
-            .DistinctBy(provider => provider.Scheme)
-            .Select(provider => new ExternalProviderDto(
-                provider.Scheme,
-                provider.DisplayName,
-                ExternalChallengeUrl(provider.Scheme, returnUrl)))
-            .ToArray();
-        var externalOnly = !enableLocalLogin && externalProviders.Length == 1
-            ? externalProviders[0].ChallengeUrl
-            : null;
-
-        return new LoginContextResponse(
-            returnUrl,
-            username,
-            enableLocalLogin,
-            true,
-            externalProviders,
-            externalOnly);
-    }
-
-    private static ConsentContextResponse BuildConsentContext(AuthorizationRequest request, string returnUrl)
-    {
-        var scopes = BuildConsentScopes(request);
-        return new ConsentContextResponse(
-            returnUrl,
-            Client(request.Client),
-            request.Client.AllowRememberConsent,
-            scopes.Identity,
-            scopes.Api);
-    }
-
     private static ScopeSet BuildConsentScopes(AuthorizationRequest request)
     {
         var resourceIndicators = request.Parameters.GetValues(OidcConstants.AuthorizeRequest.Resource) ?? [];
         var apiResources = request.ValidatedResources.Resources.ApiResources
             .Where(resource => resourceIndicators.Contains(resource.Name));
-        return BuildScopes(
-            request.ValidatedResources,
-            apiResources,
-            includeOfflineAccess: true);
-    }
-
-    private static ScopeSet BuildDeviceScopes(DeviceFlowAuthorizationRequest request) =>
-        BuildScopes(request.ValidatedResources, [], includeOfflineAccess: true);
-
-    private static ScopeSet BuildCibaScopes(BackchannelUserLoginRequest request)
-    {
-        var indicators = request.RequestedResourceIndicators ?? [];
-        var apiResources = request.ValidatedResources.Resources.ApiResources
-            .Where(resource => indicators.Contains(resource.Name));
-        return BuildScopes(request.ValidatedResources, apiResources, includeOfflineAccess: true);
+        return BuildScopes(request.ValidatedResources, apiResources);
     }
 
     private static ScopeSet BuildScopes(
         ResourceValidationResult validated,
-        IEnumerable<ApiResource> apiResources,
-        bool includeOfflineAccess)
+        IEnumerable<ApiResource> apiResources)
     {
         var identity = validated.Resources.IdentityResources
             .Select(resource => new ScopeDto(
@@ -1249,7 +587,7 @@ internal static class IdentityUiEndpoints
                     .ToArray()));
         }
 
-        if (includeOfflineAccess && validated.Resources.OfflineAccess)
+        if (validated.Resources.OfflineAccess)
         {
             api.Add(new ScopeDto(
                 IdentityServerConstants.StandardScopes.OfflineAccess,
@@ -1293,25 +631,13 @@ internal static class IdentityUiEndpoints
     private static ClientContextDto Client(Client client) =>
         new(client.ClientName ?? client.ClientId, client.ClientUri, client.LogoUri);
 
-    private static IResult NavigationForAuthorizationContext(AuthorizationRequest context, string? returnUrl)
-    {
-        if (string.IsNullOrWhiteSpace(returnUrl))
-        {
-            return Results.ValidationProblem(Errors("returnUrl", "A return URL is required."));
-        }
-        return context.IsNativeClient()
-            ? Navigation(NativeLoadingUrl(returnUrl), "native-loading")
+    private static IResult NavigationForAuthorizationContext(string? returnUrl) =>
+        string.IsNullOrWhiteSpace(returnUrl)
+            ? Results.ValidationProblem(Errors("returnUrl", "A return URL is required."))
             : Navigation(returnUrl);
-    }
 
-    private static IResult Navigation(string url, string kind = "redirect") =>
-        Results.Ok(new NavigationResponse(new NavigationDto(kind, url)));
-
-    private static string NativeLoadingUrl(string returnUrl) =>
-        $"/Redirect?redirectUri={Uri.EscapeDataString(returnUrl)}";
-
-    private static string ExternalChallengeUrl(string scheme, string? returnUrl) =>
-        $"/ExternalLogin/Challenge?scheme={Uri.EscapeDataString(scheme)}&returnUrl={Uri.EscapeDataString(returnUrl ?? "/")}";
+    private static IResult Navigation(string url) =>
+        Results.Ok(new NavigationResponse(new NavigationDto("redirect", url)));
 
     private static string LoggedOutUrl(string? logoutId) =>
         $"/Account/Logout/LoggedOut{(string.IsNullOrWhiteSpace(logoutId) ? string.Empty : $"?logoutId={Uri.EscapeDataString(logoutId)}")}";

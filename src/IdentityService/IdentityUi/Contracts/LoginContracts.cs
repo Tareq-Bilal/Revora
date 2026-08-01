@@ -1,17 +1,10 @@
 namespace IdentityService.IdentityUi;
 
-public sealed record ExternalProviderDto(
-    string AuthenticationScheme,
-    string DisplayName,
-    string ChallengeUrl);
-
 public sealed record LoginContextResponse(
     string? ReturnUrl,
     string? Username,
     bool EnableLocalLogin,
-    bool AllowRememberLogin,
-    IReadOnlyCollection<ExternalProviderDto> ExternalProviders,
-    string? ExternalLoginUrl);
+    bool AllowRememberLogin);
 
 public sealed record LoginRequest(
     string? Username,

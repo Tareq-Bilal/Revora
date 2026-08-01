@@ -1,14 +1,11 @@
 using System.Globalization;
-using Duende.IdentityServer;
 using IdentityService.Data;
 using IdentityService.IdentityUi;
 using IdentityService.Models;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Serilog;
-using Serilog.Filters;
 
 namespace IdentityService;
 
@@ -16,35 +13,12 @@ internal static class HostingExtensions
 {
     public static WebApplicationBuilder ConfigureLogging(this WebApplicationBuilder builder)
     {
-        // Write most logs to the console but diagnostic data to a file.
-        // See https://duende.link/diagnostics
-        _ = builder.Services.AddSerilog(lc =>
-        {
-            _ = lc.WriteTo.Logger(consoleLogger =>
-            {
-                _ = consoleLogger.WriteTo.Console(
-                    outputTemplate: "[{Timestamp:HH:mm:ss} {Level}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}{NewLine}",
-                    formatProvider: CultureInfo.InvariantCulture);
-                if (builder.Environment.IsDevelopment())
-                {
-                    _ = consoleLogger.Filter.ByExcluding(Matching.FromSource("Duende.IdentityServer.Diagnostics.Summary"));
-                }
-            });
-            if (builder.Environment.IsDevelopment())
-            {
-                _ = lc.WriteTo.Logger(fileLogger =>
-                {
-                    _ = fileLogger
-                        .WriteTo.File("./diagnostics/diagnostic.log", rollingInterval: RollingInterval.Day,
-                            fileSizeLimitBytes: 1024 * 1024 * 10, // 10 MB
-                            rollOnFileSizeLimit: true,
-                            outputTemplate: "[{Timestamp:HH:mm:ss} {Level}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}{NewLine}",
-                            formatProvider: CultureInfo.InvariantCulture)
-                        .Filter
-                        .ByIncludingOnly(Matching.FromSource("Duende.IdentityServer.Diagnostics.Summary"));
-                }).Enrich.FromLogContext().ReadFrom.Configuration(builder.Configuration);
-            }
-        });
+        _ = builder.Services.AddSerilog(lc => lc
+            .WriteTo.Console(
+                outputTemplate: "[{Timestamp:HH:mm:ss} {Level}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}{NewLine}",
+                formatProvider: CultureInfo.InvariantCulture)
+            .Enrich.FromLogContext()
+            .ReadFrom.Configuration(builder.Configuration));
         return builder;
     }
 
@@ -92,40 +66,13 @@ internal static class HostingExtensions
                 options.UserInteraction.LogoutUrl = "/Account/Logout";
                 options.UserInteraction.ConsentUrl = "/Consent";
                 options.UserInteraction.ErrorUrl = "/Error";
-                options.UserInteraction.DeviceVerificationUrl = "/Device";
-
-                // Use a large chunk size for diagnostic data in development where it will be redirected to a local file.
-                if (builder.Environment.IsDevelopment())
-                {
-                    options.Diagnostics.ChunkSize = 1024 * 1024 * 10; // 10 MB
-                }
             })
             .AddInMemoryIdentityResources(Config.IdentityResources)
             .AddInMemoryApiScopes(Config.ApiScopes)
             .AddInMemoryApiResources(Config.ApiResources)
             .AddInMemoryClients(Config.GetClients(builder.Configuration))
             .AddAspNetIdentity<ApplicationUser>()
-            .AddProfileService<RevoraProfileService>()
-            .AddLicenseSummary();
-
-        _ = builder.Services.AddAuthentication()
-            .AddOpenIdConnect("oidc", "Sign-in with demo.duendesoftware.com", options =>
-            {
-                options.SignInScheme = IdentityServerConstants.ExternalCookieAuthenticationScheme;
-                options.SignOutScheme = IdentityServerConstants.SignoutScheme;
-                options.SaveTokens = true;
-
-                options.Authority = "https://demo.duendesoftware.com";
-                options.ClientId = "interactive.confidential";
-                options.ClientSecret = "secret";
-                options.ResponseType = "code";
-
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    NameClaimType = "name",
-                    RoleClaimType = "role"
-                };
-            });
+            .AddProfileService<RevoraProfileService>();
 
         // add `.PersistKeysTo…()` and `.ProtectKeysWith…()` calls
         // see more at https://docs.duendesoftware.com/general/data-protection

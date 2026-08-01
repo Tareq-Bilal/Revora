@@ -483,3 +483,9 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# IdentityServer auto-generated signing keys (never commit private key material)
+src/IdentityService/keys/
+
+# SQLite artifacts from the Duende template (service uses PostgreSQL)
+src/IdentityService/*.db
