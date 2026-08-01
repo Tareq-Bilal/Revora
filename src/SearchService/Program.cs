@@ -1,6 +1,10 @@
+using System.Security.Claims;
 using MongoDB.Driver;
 using MongoDB.Entities;
 using MassTransit;
+using Contracts;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using SearchService.Consumers;
 using Polly;
 using Polly.Extensions.Http;
@@ -13,9 +17,64 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
-builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+builder.Services
+    .AddOptions<IdentityServiceOptions>()
+    .Bind(builder.Configuration.GetSection(IdentityServiceOptions.SectionName))
+    .Validate(
+        options =>
+            Uri.TryCreate(
+                options.Authority,
+                UriKind.Absolute,
+                out _),
+        "IdentityService:Authority must be an absolute URL.")
+    .Validate(
+        options =>
+            !string.IsNullOrWhiteSpace(options.Audience) &&
+            !string.IsNullOrWhiteSpace(options.ClientId) &&
+            !string.IsNullOrWhiteSpace(options.ClientSecret) &&
+            !string.IsNullOrWhiteSpace(options.Scope),
+        "IdentityService audience and client-credentials settings are required.")
+    .ValidateOnStart();
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = builder.Configuration["IdentityService:Authority"]
+            ?? "http://localhost:5001";
+        options.Audience = builder.Configuration["IdentityService:Audience"]
+            ?? RevoraAuth.SearchApiAudience;
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            NameClaimType = "preferred_username",
+            RoleClaimType = "role",
+        };
+    });
+builder.Services
+    .AddAuthorizationBuilder()
+    .AddPolicy(
+        RevoraAuth.SearchReadPolicy,
+        policy => policy
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context =>
+                HasScope(context.User, RevoraAuth.UserApiScope)));
 builder.Services.AddScoped<ISearchIndexService, SearchIndexService>();
-builder.Services.AddHttpClient<AuctionSvcHttpClient>().AddPolicyHandler(GetPolicy());
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient(
+    "identity-token",
+    client =>
+    {
+        client.BaseAddress = new Uri(
+            builder.Configuration["IdentityService:Authority"]
+            ?? "http://localhost:5001");
+    });
+builder.Services.AddSingleton<ClientCredentialsTokenService>();
+builder.Services.AddTransient<ClientCredentialsTokenHandler>();
+builder.Services
+    .AddHttpClient<AuctionSvcHttpClient>()
+    .AddHttpMessageHandler<ClientCredentialsTokenHandler>()
+    .AddPolicyHandler(GetPolicy());
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<AuctionCreatedConsumer>();
@@ -41,6 +100,7 @@ builder.Services.AddMassTransit(x =>
 var app = builder.Build();
 
 
+app.UseAuthentication();
 app.UseAuthorization(); 
 
 app.MapControllers();
@@ -70,3 +130,10 @@ static IAsyncPolicy<HttpResponseMessage> GetPolicy() =>
     {
         Console.WriteLine($"Retry {retryAttempt} after {timespan.TotalSeconds} seconds");
     });
+
+static bool HasScope(ClaimsPrincipal user, string requiredScope) =>
+    user.FindAll("scope")
+        .SelectMany(claim => claim.Value.Split(
+            ' ',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        .Contains(requiredScope, StringComparer.Ordinal);

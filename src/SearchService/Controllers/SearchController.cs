@@ -1,6 +1,7 @@
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SearchService.Entities;
 using SearchService.RequestHelpers;
@@ -10,6 +11,7 @@ namespace SearchService.Controllers;
 
 [ApiController]
 [Route("api/search")]
+[AllowAnonymous]
 public class SearchController : ControllerBase
 {
     [HttpGet]

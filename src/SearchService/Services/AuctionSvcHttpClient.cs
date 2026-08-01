@@ -32,7 +32,7 @@ public class AuctionSvcHttpClient
                 $"{AuctionServiceUrlEnvVar} environment variable is not configured");
         }
 
-        var requestUri = $"{baseUrl.TrimEnd('/')}/api/auctions";
+        var requestUri = $"{baseUrl.TrimEnd('/')}/api/auctions/sync";
 
         if (latestItem != null)
         {

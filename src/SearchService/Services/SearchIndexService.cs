@@ -1,4 +1,3 @@
-using AutoMapper;
 using Contracts;
 using MongoDB.Driver;
 using MongoDB.Entities;
@@ -8,16 +7,25 @@ namespace SearchService.Services;
 
 public class SearchIndexService : ISearchIndexService
 {
-    private readonly IMapper _mapper;
-
-    public SearchIndexService(IMapper mapper)
-    {
-        _mapper = mapper;
-    }
-
     public async Task CreateOrUpdateAsync(AuctionCreated auction, CancellationToken cancellationToken)
     {
-        var item = _mapper.Map<Item>(auction);
+        var item = new Item
+        {
+            ID = auction.Id.ToString(),
+            ReservePrice = Convert.ToInt32(auction.ReservePrice),
+            Seller = auction.Seller,
+            Winner = auction.Winner,
+            Make = auction.Make,
+            Model = auction.Model,
+            Year = auction.Year,
+            Color = auction.Color,
+            Mileage = auction.Mileage,
+            ImageUrl = auction.ImageUrl,
+            Status = auction.Status,
+            CreatedAt = auction.CreatedAt ?? DateTime.UtcNow,
+            UpdatedAt = auction.UpdatedAt ?? DateTime.UtcNow,
+            AuctionEnd = auction.AuctionEnd ?? DateTime.UtcNow,
+        };
 
         await DB.Default.Collection<Item>().ReplaceOneAsync(
             x => x.ID == item.ID,
