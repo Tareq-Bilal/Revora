@@ -1,10 +1,11 @@
+using System.Globalization;
+using System.Security.Claims;
 using AuctionService.Data;
 using AuctionService.DTOs;
 using AuctionService.Entites;
-using AutoMapper;
 using Contracts;
 using MassTransit;
-using System.Globalization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,133 +13,254 @@ namespace AuctionService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuctionsController : ControllerBase
+public class AuctionsController(
+    AuctionDbContext context,
+    IPublishEndpoint publishEndpoint) : ControllerBase
 {
-    private readonly AuctionDbContext _context;
-    private readonly IMapper _mapper;
-    private readonly IPublishEndpoint _publishEndpoint;
-
-    public AuctionsController(AuctionDbContext context, IMapper mapper,
-     IPublishEndpoint publishEndpoint)
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<ActionResult<List<AuctionDto>>> ListAuctions(
+        [FromQuery] string date)
     {
-        _context = context;
-        _mapper = mapper;
-        _publishEndpoint = publishEndpoint;
+        return await GetAuctions(date);
     }
 
-    [HttpGet]
-    public async Task<ActionResult<List<AuctionDto>>> ListAuctions([FromQuery] string date)
+    [HttpGet("sync")]
+    [Authorize(Policy = RevoraAuth.AuctionSyncPolicy)]
+    public async Task<ActionResult<List<AuctionDto>>> SyncAuctions(
+        [FromQuery] string date)
     {
-        var query = _context.Auctions
-            .Include(a => a.Item)
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(date))
-        {
-            if (!DateTime.TryParse(
-                date,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                out var parsedDate))
-            {
-                return BadRequest("Invalid date query string");
-            }
-
-            query = query.Where(a => a.UpdatedAt.HasValue && a.UpdatedAt.Value > parsedDate);
-        }
-
-        var auctions = await query
-            .OrderBy(a => a.Item.Make)
-            .ToListAsync();
-
-        return _mapper.Map<List<AuctionDto>>(auctions);
+        return await GetAuctions(date);
     }
 
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<ActionResult<AuctionDto>> GetAuction(Guid id)
     {
-        var auction = await _context.Auctions
-        .Include(a => a.Item)
-        .FirstOrDefaultAsync(a => a.Id == id);
+        var auction = await context.Auctions
+            .Include(auction => auction.Item)
+            .FirstOrDefaultAsync(auction => auction.Id == id);
 
-        if (auction == null) return NotFound();
+        if (auction == null)
+        {
+            return NotFound();
+        }
 
-        return _mapper.Map<AuctionDto>(auction);
+        return ToDto(auction);
     }
 
     [HttpPost]
-    public async Task<ActionResult<AuctionDto>> CreateAuction([FromBody] CreateAuctionDto createAuctionDto)
+    [Authorize(Policy = RevoraAuth.AuctionWritePolicy)]
+    public async Task<ActionResult<AuctionDto>> CreateAuction(
+        [FromBody] CreateAuctionDto input)
     {
-        var auction = _mapper.Map<Auction>(createAuctionDto);
-        auction.Seller = "tareq"; // Replace with the actual seller's username or ID
-        _context.Auctions.Add(auction);
+        var sellerId = User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(sellerId))
+        {
+            return Forbid();
+        }
 
-        var auctionDto = _mapper.Map<AuctionDto>(auction);
+        var auction = ToAuction(input);
+        auction.SellerId = sellerId;
+        auction.Seller =
+            User.FindFirstValue("name") ??
+            User.FindFirstValue("preferred_username") ??
+            sellerId;
+        context.Auctions.Add(auction);
 
-        // Publish the AuctionCreated event to the message broker                                                                                                                       
-        await _publishEndpoint.Publish(_mapper.Map<AuctionCreated>(auctionDto));
+        var auctionDto = ToDto(auction);
+        await publishEndpoint.Publish(ToCreatedEvent(auctionDto));
 
-        var result = await _context.SaveChangesAsync() > 0;
-        
-        if(!result) return BadRequest("Failed to create auction");
-        
-        return CreatedAtAction(nameof(GetAuction), new {auction.Id }, auctionDto);
+        var saved = await context.SaveChangesAsync() > 0;
+        if (!saved)
+        {
+            return BadRequest("Failed to create auction");
+        }
+
+        return CreatedAtAction(
+            nameof(GetAuction),
+            new { auction.Id },
+            auctionDto);
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult> UpdateAuction(Guid id, [FromBody] UpdateAuctionDto updateAuctionDto)
+    [Authorize(Policy = RevoraAuth.AuctionWritePolicy)]
+    public async Task<ActionResult> UpdateAuction(
+        Guid id,
+        [FromBody] UpdateAuctionDto input)
     {
-        var auction = await _context.Auctions
-        .Include(a => a.Item)
-        .FirstOrDefaultAsync(a => a.Id == id);
+        var auction = await context.Auctions
+            .Include(auction => auction.Item)
+            .FirstOrDefaultAsync(auction => auction.Id == id);
 
-        if (auction == null) return NotFound();
-        // TODO: Check the sleller of the auction to ensure that only the seller can update the auction
-       
-       // Update the auction properties with the desired values from the updateAuctionDto
-        auction.Item.Make = updateAuctionDto.Make ?? auction.Item.Make;
-        auction.Item.Model = updateAuctionDto.Model ?? auction.Item.Model;
-        auction.Item.Year = updateAuctionDto.Year ?? auction.Item.Year;
-        auction.Item.Color = updateAuctionDto.Color ?? auction.Item.Color;
-        auction.Item.Mileage = updateAuctionDto.Mileage ?? auction.Item.Mileage;
+        if (auction == null)
+        {
+            return NotFound();
+        }
+
+        if (!IsOwner(auction))
+        {
+            return Forbid();
+        }
+
+        // Existing seeded auctions predate SellerId. A matching seller claims
+        // the stable subject identifier on the first successful update.
+        auction.SellerId ??= User.FindFirstValue("sub");
+        auction.Item.Make = input.Make ?? auction.Item.Make;
+        auction.Item.Model = input.Model ?? auction.Item.Model;
+        auction.Item.Year = input.Year ?? auction.Item.Year;
+        auction.Item.Color = input.Color ?? auction.Item.Color;
+        auction.Item.Mileage = input.Mileage ?? auction.Item.Mileage;
         auction.UpdatedAt = DateTime.UtcNow;
 
-        await _publishEndpoint.Publish(new AuctionUpdated
+        await publishEndpoint.Publish(new AuctionUpdated
         {
             Id = auction.Id,
             Make = auction.Item.Make,
             Model = auction.Item.Model,
             Year = auction.Item.Year,
             Color = auction.Item.Color,
-            Mileage = auction.Item.Mileage
+            Mileage = auction.Item.Mileage,
         });
 
-        var result = await _context.SaveChangesAsync() > 0;
-
-        if (!result) return BadRequest("Failed to update auction");
-
-
-        return Ok();
+        var saved = await context.SaveChangesAsync() > 0;
+        return saved
+            ? Ok()
+            : BadRequest("Failed to update auction");
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = RevoraAuth.AuctionWritePolicy)]
     public async Task<ActionResult> DeleteAuction(Guid id)
     {
-        var auction = await _context.Auctions.FindAsync(id);
+        var auction = await context.Auctions.FindAsync(id);
+        if (auction == null)
+        {
+            return NotFound();
+        }
 
-        if (auction == null) return NotFound();
+        if (!IsOwner(auction))
+        {
+            return Forbid();
+        }
 
-        //TODO: Check the sleller of the auction to ensure that only the seller can delete the auction
+        context.Auctions.Remove(auction);
+        await publishEndpoint.Publish(new AuctionDeleted { Id = auction.Id });
 
-        _context.Auctions.Remove(auction);
-
-        await _publishEndpoint.Publish(new AuctionDeleted { Id = auction.Id });
-        
-        var result = await _context.SaveChangesAsync() > 0;
-
-        if (!result) return BadRequest("Failed to delete auction");
-
-
-        return Ok();
+        var saved = await context.SaveChangesAsync() > 0;
+        return saved
+            ? Ok()
+            : BadRequest("Failed to delete auction");
     }
+
+    private async Task<ActionResult<List<AuctionDto>>> GetAuctions(string date)
+    {
+        var query = context.Auctions
+            .Include(auction => auction.Item)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(date))
+        {
+            if (!DateTime.TryParse(
+                    date,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal |
+                    DateTimeStyles.AdjustToUniversal,
+                    out var parsedDate))
+            {
+                return BadRequest("Invalid date query string");
+            }
+
+            query = query.Where(
+                auction =>
+                    auction.UpdatedAt.HasValue &&
+                    auction.UpdatedAt.Value > parsedDate);
+        }
+
+        var auctions = await query
+            .OrderBy(auction => auction.Item.Make)
+            .ToListAsync();
+
+        return auctions.Select(ToDto).ToList();
+    }
+
+    private bool IsOwner(Auction auction)
+    {
+        var subjectId = User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(subjectId))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(auction.SellerId))
+        {
+            return string.Equals(
+                auction.SellerId,
+                subjectId,
+                StringComparison.Ordinal);
+        }
+
+        var username =
+            User.FindFirstValue("preferred_username") ??
+            User.FindFirstValue("name");
+        return !string.IsNullOrWhiteSpace(username) &&
+               string.Equals(
+                   auction.Seller,
+                   username,
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static Auction ToAuction(CreateAuctionDto input) =>
+        new()
+        {
+            ReservePrice = input.ReservePrice,
+            AuctionEnd = input.AuctionEnd,
+            Item = new Item
+            {
+                Make = input.Make,
+                Model = input.Model,
+                Year = input.Year,
+                Color = input.Color,
+                Mileage = input.Mileage,
+                ImageUrl = input.ImageUrl,
+            },
+        };
+
+    private static AuctionDto ToDto(Auction auction) =>
+        new()
+        {
+            Id = auction.Id,
+            ReservePrice = auction.ReservePrice,
+            Seller = auction.Seller,
+            Winner = auction.Winner,
+            Make = auction.Item.Make,
+            Model = auction.Item.Model,
+            Year = auction.Item.Year,
+            Color = auction.Item.Color,
+            Mileage = auction.Item.Mileage,
+            CreatedAt = auction.CreatedAt,
+            UpdatedAt = auction.UpdatedAt,
+            AuctionEnd = auction.AuctionEnd,
+            Status = auction.Status.ToString(),
+            ImageUrl = auction.Item.ImageUrl,
+        };
+
+    private static AuctionCreated ToCreatedEvent(AuctionDto auction) =>
+        new()
+        {
+            Id = auction.Id,
+            ReservePrice = auction.ReservePrice,
+            Seller = auction.Seller,
+            Winner = auction.Winner,
+            Make = auction.Make,
+            Model = auction.Model,
+            Year = auction.Year,
+            Color = auction.Color,
+            Mileage = auction.Mileage,
+            CreatedAt = auction.CreatedAt,
+            UpdatedAt = auction.UpdatedAt,
+            AuctionEnd = auction.AuctionEnd,
+            Status = auction.Status,
+            ImageUrl = auction.ImageUrl,
+        };
 }
