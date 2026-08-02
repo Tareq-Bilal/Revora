@@ -487,5 +487,9 @@ $RECYCLE.BIN/
 # IdentityServer auto-generated signing keys (never commit private key material)
 src/IdentityService/keys/
 
+# Explanation docs — kept local, not committed
+docs/OAUTH_GUIDE.md
+docs/AUTHENTICATION_GUIDE.md
+
 # SQLite artifacts from the Duende template (service uses PostgreSQL)
 src/IdentityService/*.db

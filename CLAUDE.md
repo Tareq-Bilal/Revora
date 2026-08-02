@@ -91,7 +91,7 @@ npx vitest run -t "keeps required scopes selected"
 `BiddingService`, and `NotificationService`. **None of these exist yet** — that
 section describes target architecture, not current state.
 
-### Auth is the backbone — read `OAUTH_GUIDE.md` first
+### Auth is the backbone — read `docs/OAUTH_GUIDE.md` first
 
 IdentityService is the single authorization server. AuctionService and
 SearchService are resource servers that validate JWTs **locally** against cached
@@ -108,8 +108,8 @@ Two clients (`src/IdentityService/Config.cs`):
   AuctionService's `/api/auctions/sync`.
 - `interactive` — Authorization Code + PKCE, reserved for the future WebApp/BFF.
 
-`AUTHENTICATION_GUIDE.md` covers claim/policy/audience tables and ownership
-rules. `OAUTH_GUIDE.md` explains the protocol and maps it onto these files.
+`docs/AUTHENTICATION_GUIDE.md` covers claim/policy/audience tables and ownership
+rules. `docs/OAUTH_GUIDE.md` explains the protocol and maps it onto these files.
 
 ### The Identity UI is proxied, not standalone
 
