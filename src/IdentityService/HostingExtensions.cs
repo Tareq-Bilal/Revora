@@ -72,7 +72,8 @@ internal static class HostingExtensions
             .AddInMemoryApiResources(Config.ApiResources)
             .AddInMemoryClients(Config.GetClients(builder.Configuration))
             .AddAspNetIdentity<ApplicationUser>()
-            .AddProfileService<RevoraProfileService>();
+            .AddProfileService<RevoraProfileService>()
+            .AddResourceOwnerValidator<ResourceOwnerPasswordValidator>();
 
         // add `.PersistKeysTo…()` and `.ProtectKeysWith…()` calls
         // see more at https://docs.duendesoftware.com/general/data-protection

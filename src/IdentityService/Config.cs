@@ -53,6 +53,9 @@ public static class Config
         var interactiveSecret = GetRequiredSecret(
             configuration,
             "IdentityClients:Interactive:ClientSecret");
+        var postmanSecret = GetRequiredSecret(
+            configuration,
+            "IdentityClients:Postman:ClientSecret");
 
         return
         new Client[]
@@ -82,6 +85,18 @@ public static class Config
                 PostLogoutRedirectUris = { "https://localhost:44300/signout-callback-oidc" },
 
                 AllowOfflineAccess = true,
+                AllowedScopes = { "openid", "profile", RevoraAuth.UserApiScope }
+            },
+
+            // resource owner password flow client, for direct API testing (e.g. Postman)
+            new Client
+            {
+                ClientId = "postman",
+                ClientName = "Postman Resource Owner Password Client",
+
+                AllowedGrantTypes = GrantTypes.ResourceOwnerPassword,
+                ClientSecrets = { new Secret(postmanSecret.Sha256()) },
+
                 AllowedScopes = { "openid", "profile", RevoraAuth.UserApiScope }
             },
         };
