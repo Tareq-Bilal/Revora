@@ -1,0 +1,21 @@
+using Contracts;
+
+namespace SearchService.Entities;
+
+/// <summary>
+/// The terminal state an <see cref="AuctionFinished"/> message resolves an item to.
+/// Pure translation from contract to read model: no I/O and no Mongo types, so the
+/// rule can be unit tested without a database.
+/// </summary>
+public sealed record AuctionOutcome(AuctionStatus Status, string Winner, int? SoldAmount)
+{
+    /// <summary>
+    /// The publisher owns the reserve decision and reports it as <see cref="AuctionFinished.ItemSold"/>.
+    /// Re-deriving it here from ReservePrice would duplicate the rule in two services and let them drift.
+    /// An unsold auction has no winner and no sale amount.
+    /// </summary>
+    public static AuctionOutcome From(AuctionFinished auction) =>
+        auction.ItemSold
+            ? new AuctionOutcome(AuctionStatus.Finished, auction.Winner, auction.SoldAmount)
+            : new AuctionOutcome(AuctionStatus.ReserveNotMet, null, null);
+}

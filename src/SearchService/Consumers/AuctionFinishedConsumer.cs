@@ -1,5 +1,6 @@
 using Contracts;
 using MassTransit;
+using SearchService.Entities;
 using SearchService.Services;
 
 namespace SearchService.Consumers;
@@ -20,14 +21,21 @@ public class AuctionFinishedConsumer : IConsumer<AuctionFinished>
     public async Task Consume(ConsumeContext<AuctionFinished> context)
     {
         var message = context.Message;
-        var itemFinished = await _searchIndexService.FinishAsync(message, context.CancellationToken);
 
-        if (!itemFinished)
+        // Sold auctions finish with a winner and a sale amount; unsold ones finish
+        // as ReserveNotMet with neither.
+        var outcome = AuctionOutcome.From(message);
+
+        var outcomeApplied = await _searchIndexService.ApplyOutcomeAsync(
+            message.AuctionId, outcome, context.CancellationToken);
+
+        if (!outcomeApplied)
         {
             _logger.LogWarning("Auction finished message consumed but item was not found: {AuctionId}", message.AuctionId);
             return;
         }
 
-        _logger.LogInformation("Auction finished message consumed: {AuctionId}", message.AuctionId);
+        _logger.LogInformation(
+            "Auction finished message consumed, item is {Status}: {AuctionId}", outcome.Status, message.AuctionId);
     }
 }
