@@ -8,4 +8,5 @@ public interface ISearchIndexService
     Task<bool> UpdateAsync(AuctionUpdated auction, CancellationToken cancellationToken);
     Task<bool> DeleteAsync(AuctionDeleted auction, CancellationToken cancellationToken);
     Task<bool> FinishAsync(AuctionFinished auction, CancellationToken cancellationToken);
+    Task<bool> RaiseHighBidAsync(BidPlaced bid, CancellationToken cancellationToken);
 }

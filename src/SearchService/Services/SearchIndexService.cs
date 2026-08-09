@@ -101,4 +101,28 @@ public class SearchIndexService : ISearchIndexService
 
         return true;
     }
+
+    public async Task<bool> RaiseHighBidAsync(BidPlaced bid, CancellationToken cancellationToken)
+    {
+        // The high-bid guard lives in the filter so the read and the write are one
+        // atomic operation: concurrent bids on the same auction cannot overwrite
+        // each other, and a replayed or out-of-order bid simply matches nothing.
+        // Eq(null) also covers documents written before CurrentHighBid existed.
+        var filter = Builders<Item>.Filter.And(
+            Builders<Item>.Filter.Eq(x => x.ID, bid.AuctionId.ToString()),
+            Builders<Item>.Filter.Or(
+                Builders<Item>.Filter.Eq(x => x.CurrentHighBid, (int?)null),
+                Builders<Item>.Filter.Lt(x => x.CurrentHighBid, bid.Amount)));
+
+        var update = Builders<Item>.Update
+            .Set(x => x.CurrentHighBid, bid.Amount)
+            .Set(x => x.UpdatedAt, DateTime.UtcNow);
+
+        var result = await DB.Default.Collection<Item>().UpdateOneAsync(
+            filter,
+            update,
+            cancellationToken: cancellationToken);
+
+        return result.ModifiedCount > 0;
+    }
 }
