@@ -10,9 +10,8 @@ namespace SearchService.Entities;
 public sealed record AuctionOutcome(AuctionStatus Status, string Winner, int? SoldAmount)
 {
     /// <summary>
-    /// The publisher owns the reserve decision and reports it as <see cref="AuctionFinished.ItemSold"/>.
-    /// Re-deriving it here from ReservePrice would duplicate the rule in two services and let them drift.
-    /// An unsold auction has no winner and no sale amount.
+    /// The publisher owns the reserve decision (<see cref="AuctionFinished.ItemSold"/>);
+    /// re-deriving it here would let the rule drift between services.
     /// </summary>
     public static AuctionOutcome From(AuctionFinished auction) =>
         auction.ItemSold
