@@ -72,34 +72,25 @@ public class SearchIndexService : ISearchIndexService
         return result.DeletedCount > 0;
     }
 
-    public async Task<bool> FinishAsync(AuctionFinished auction, CancellationToken cancellationToken)
+    public async Task<bool> ApplyOutcomeAsync(Guid auctionId, AuctionOutcome outcome, CancellationToken cancellationToken)
     {
-        var item = await DB.Default.Collection<Item>()
-            .Find(x => x.ID == auction.AuctionId.ToString())
-            .FirstOrDefaultAsync(cancellationToken);
+        // A field update rather than a whole-document replace: a BidPlaced landing
+        // concurrently keeps its CurrentHighBid instead of being overwritten by a
+        // document this method read moments earlier.
+        var applyOutcome = Builders<Item>.Update
+            .Set(x => x.Status, outcome.Status.ToString())
+            .Set(x => x.Winner, outcome.Winner)
+            .Set(x => x.SoldAmount, outcome.SoldAmount)
+            .Set(x => x.UpdatedAt, DateTime.UtcNow);
 
-        if (item is null)
-        {
-            return false;
-        }
-
-        if (auction.ItemSold)
-        {
-            item.Winner = auction.Winner;
-            item.SoldAmount = auction.SoldAmount;
-        }
-
-        item.Status = item.SoldAmount > item.ReservePrice
-            ? nameof(AuctionStatus.Finished)
-            : nameof(AuctionStatus.ReserveNotMet);
-        item.UpdatedAt = DateTime.UtcNow;
-
-        await DB.Default.Collection<Item>().ReplaceOneAsync(
-            x => x.ID == item.ID,
-            item,
+        var result = await DB.Default.Collection<Item>().UpdateOneAsync(
+            x => x.ID == auctionId.ToString(),
+            applyOutcome,
             cancellationToken: cancellationToken);
 
-        return true;
+        // MatchedCount, not ModifiedCount: a redelivery that writes identical values
+        // still means the item exists and the outcome is applied.
+        return result.MatchedCount > 0;
     }
 
     public async Task<bool> RaiseHighBidAsync(BidPlaced bid, CancellationToken cancellationToken)
