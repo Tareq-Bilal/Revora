@@ -61,7 +61,7 @@ The diagram presents Revora's general architecture: web and mobile clients enter
 |---|---|---|
 | **Next.js Web App and BFF** | Server-rendered auction experience, authenticated sessions, API composition, and client-specific responses | API Gateway, SignalR client |
 | **Ingress** | TLS termination, host routing, rate limiting, and public entry-point management | Routes traffic to the BFF and gateway |
-| **API Gateway** | Token enforcement, request routing, aggregation, and shared API policies | All backend services |
+| **API Gateway** | YARP reverse proxy: validates the JWT itself, then enforces a route-level authorization policy and rewrites the path onto the backend's `/api` route | AuctionService, SearchService |
 | **Identity Service** | User registration, login, token issuance, roles, and seller/buyer identity | PostgreSQL, security token service |
 | **Auction Service** | Vehicle listings, auction lifecycle, ownership rules, and auction state | PostgreSQL, MassTransit Bus Outbox |
 | **Search Service** | Full auction discovery, filtering, sorting, paging, and denormalized read models | MongoDB |
@@ -148,23 +148,22 @@ For a deeper explanation with diagrams, see [OUTBOX_GUIDE.md](OUTBOX_GUIDE.md).
 
 ## API Reference
 
-All public requests are authenticated and routed through the API Gateway. The BFF uses these routes to compose pages and client-focused responses without exposing internal service topology to browsers or mobile clients.
-
 ### Gateway surface
 
-| Method | Route | Owning service | Description |
+Internal development URL: `http://localhost:6001`
+
+GatewayService is a YARP reverse proxy in front of AuctionService and SearchService only. It validates the caller's JWT itself, then applies a per-route authorization policy before forwarding onto the backend's `/api` route. IdentityService is not proxied; browse it directly at `http://localhost:5001`.
+
+| Method | Route | Authorization | Forwards to |
 |---|---|---|---|
-| `POST` | `/api/account/register` | Identity | Create a buyer or seller account |
-| `POST` | `/api/account/login` | Identity | Authenticate and issue a session/token |
-| `GET` | `/api/auctions` | Auction | Browse auction records |
-| `POST` | `/api/auctions` | Auction | Create a seller-owned auction |
-| `PUT` | `/api/auctions/{id}` | Auction | Update an owned auction |
-| `DELETE` | `/api/auctions/{id}` | Auction | Delete an owned auction |
-| `GET` | `/api/search` | Search | Search, filter, sort, and page auctions |
-| `POST` | `/api/bids` | Bidding | Place a bid on a live auction |
-| `GET` | `/api/bids/{auctionId}` | Bidding | Read bid history for an auction |
-| `GET` | `/api/notifications` | Notifications | Read the authenticated user's notifications |
-| `WS` | `/hubs/notifications` | Notifications | Receive real-time bid and auction updates |
+| `GET` | `/auctions/sync` | `auction.sync` (`scope1`) | AuctionService `GET /api/auctions/sync` |
+| `GET` | `/auctions/{**catch-all}` | anonymous | AuctionService `GET /api/auctions/{**catch-all}` |
+| `POST`, `PUT`, `DELETE` | `/auctions/{**catch-all}` | `auction.write` (`scope2`) | AuctionService `/api/auctions/{**catch-all}` |
+| `GET` | `/search/{**catch-all}` | anonymous | SearchService `GET /api/search/{**catch-all}` |
+
+Bidding, Notification, and Identity routes are not proxied yet — BiddingService and NotificationService don't exist in this repo yet (see [Project Structure](#project-structure)).
+
+For the full request walkthrough (headers, token validation, path rewriting), see [docs/API Gateway Flow.md](docs/API%20Gateway%20Flow.md).
 
 ### AuctionService
 
@@ -398,8 +397,8 @@ or a separate host binding because that application also uses host port `3000`.
 ```text
 Revora/
 ├── src/
-│   ├── WebApp/                  # Next.js web client and BFF
-│   ├── Gateway/                 # Public API routing and policies
+│   ├── WebApp/                  # Next.js web client and BFF (planned)
+│   ├── GatewayService/          # YARP reverse proxy: JWT validation and route policies
 │   ├── IdentityService/         # Users, roles, tokens, and authentication
 │   ├── AuctionService/
 │   │   ├── Consumers/           # Integration-event consumers
@@ -417,8 +416,8 @@ Revora/
 │   │   ├── RequestHelpers/      # Search parameters, filters, and sorting
 │   │   ├── Services/            # SearchIndexService and HTTP client
 │   │   └── Program.cs           # MongoDB, HTTP, and MassTransit wiring
-│   ├── BiddingService/          # Bid validation, history, and winners
-│   ├── NotificationService/     # SignalR hubs and user notifications
+│   ├── BiddingService/          # Bid validation, history, and winners (planned)
+│   ├── NotificationService/     # SignalR hubs and user notifications (planned)
 │   └── Contracts/               # Shared integration-event contracts
 ├── docker-compose.yaml          # Full platform and infrastructure
 ├── docs/
