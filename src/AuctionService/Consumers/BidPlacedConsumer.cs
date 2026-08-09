@@ -37,8 +37,7 @@ public class BidPlacedConsumer : IConsumer<BidPlaced>
     private static bool RaisesHighBid(Auction auction, BidPlaced bid)
     {
         // Only a bid the bidding service accepted can move the high-water mark.
-        // TooLow and Finished are recorded there and never change auction state.
-        if (bid.BidStatus is not (BidStatus.Accepted or BidStatus.AcceptedBelowReserve))
+        if (!bid.BidStatus.IsAccepted())
         {
             return false;
         }
