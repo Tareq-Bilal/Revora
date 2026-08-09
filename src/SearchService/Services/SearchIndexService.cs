@@ -71,4 +71,34 @@ public class SearchIndexService : ISearchIndexService
 
         return result.DeletedCount > 0;
     }
+
+    public async Task<bool> FinishAsync(AuctionFinished auction, CancellationToken cancellationToken)
+    {
+        var item = await DB.Default.Collection<Item>()
+            .Find(x => x.ID == auction.AuctionId.ToString())
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (item is null)
+        {
+            return false;
+        }
+
+        if (auction.ItemSold)
+        {
+            item.Winner = auction.Winner;
+            item.SoldAmount = auction.SoldAmount;
+        }
+
+        item.Status = item.SoldAmount > item.ReservePrice
+            ? nameof(AuctionStatus.Finished)
+            : nameof(AuctionStatus.ReserveNotMet);
+        item.UpdatedAt = DateTime.UtcNow;
+
+        await DB.Default.Collection<Item>().ReplaceOneAsync(
+            x => x.ID == item.ID,
+            item,
+            cancellationToken: cancellationToken);
+
+        return true;
+    }
 }

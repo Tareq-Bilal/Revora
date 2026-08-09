@@ -80,6 +80,7 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<AuctionCreatedConsumer>();
     x.AddConsumer<AuctionUpdatedConsumer>();
     x.AddConsumer<AuctionDeletedConsumer>();
+    x.AddConsumer<AuctionFinishedConsumer>();
 
     x.SetEndpointNameFormatter(
         new KebabCaseEndpointNameFormatter(prefix: "search", includeNamespace: false));
