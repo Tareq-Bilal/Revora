@@ -104,24 +104,24 @@ public class SearchIndexService : ISearchIndexService
 
     public async Task<bool> RaiseHighBidAsync(BidPlaced bid, CancellationToken cancellationToken)
     {
-        // The high-bid guard lives in the filter so the read and the write are one
-        // atomic operation: concurrent bids on the same auction cannot overwrite
-        // each other, and a replayed or out-of-order bid simply matches nothing.
-        // Eq(null) also covers documents written before CurrentHighBid existed.
-        var filter = Builders<Item>.Filter.And(
-            Builders<Item>.Filter.Eq(x => x.ID, bid.AuctionId.ToString()),
-            Builders<Item>.Filter.Or(
-                Builders<Item>.Filter.Eq(x => x.CurrentHighBid, (int?)null),
-                Builders<Item>.Filter.Lt(x => x.CurrentHighBid, bid.Amount)));
+        var filter = Builders<Item>.Filter;
 
-        var update = Builders<Item>.Update
+        // The guard lives in the filter so the read and the write are a single
+        // atomic compare-and-set: concurrent bids cannot overwrite each other, and
+        // a replayed or out-of-order bid simply matches nothing. The null clause
+        // covers the first bid, and documents written before CurrentHighBid existed.
+        var auctionWithLowerBid = filter.And(
+            filter.Eq(x => x.ID, bid.AuctionId.ToString()),
+            filter.Or(
+                filter.Eq(x => x.CurrentHighBid, null),
+                filter.Lt(x => x.CurrentHighBid, bid.Amount)));
+
+        var raiseHighBid = Builders<Item>.Update
             .Set(x => x.CurrentHighBid, bid.Amount)
             .Set(x => x.UpdatedAt, DateTime.UtcNow);
 
-        var result = await DB.Default.Collection<Item>().UpdateOneAsync(
-            filter,
-            update,
-            cancellationToken: cancellationToken);
+        var result = await DB.Default.Collection<Item>()
+            .UpdateOneAsync(auctionWithLowerBid, raiseHighBid, cancellationToken: cancellationToken);
 
         return result.ModifiedCount > 0;
     }
