@@ -84,6 +84,8 @@ public static class Config
                 AllowedGrantTypes = GrantTypes.Code,
                 RequirePkce = true,
 
+                AccessTokenLifetime = 30 * 24 * 60 * 60,
+
                 RedirectUris = { "http://localhost:3001/api/auth/callback/revora" },
                 FrontChannelLogoutUri = "http://localhost:3001/api/auth/logout",
                 PostLogoutRedirectUris = { "http://localhost:3001" },
