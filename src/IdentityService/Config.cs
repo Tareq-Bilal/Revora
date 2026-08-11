@@ -72,17 +72,21 @@ public static class Config
                 AllowedScopes = { RevoraAuth.InternalSyncScope }
             },
 
-            // interactive client using code flow + pkce
+            // Next.js WebApp BFF using code flow + pkce; the Node server performs the
+            // code exchange, so this stays a confidential client and the browser only
+            // ever holds the BFF session cookie.
             new Client
             {
                 ClientId = "interactive",
+                ClientName = "Revora Web App (Next.js BFF)",
                 ClientSecrets = { new Secret(interactiveSecret.Sha256()) },
 
                 AllowedGrantTypes = GrantTypes.Code,
+                RequirePkce = true,
 
-                RedirectUris = { "https://localhost:44300/signin-oidc" },
-                FrontChannelLogoutUri = "https://localhost:44300/signout-oidc",
-                PostLogoutRedirectUris = { "https://localhost:44300/signout-callback-oidc" },
+                RedirectUris = { "http://localhost:3001/api/auth/callback/revora" },
+                FrontChannelLogoutUri = "http://localhost:3001/api/auth/logout",
+                PostLogoutRedirectUris = { "http://localhost:3001" },
 
                 AllowOfflineAccess = true,
                 AllowedScopes = { "openid", "profile", RevoraAuth.UserApiScope }
